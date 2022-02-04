@@ -182,6 +182,7 @@ export const shareEconomyBundles = async ({
     vaultBundles,
     governanceBundles: govP,
     pegasusBundle: pegasusP,
+    centralSupplyBundle: centralP,
   },
 }) => {
   govP.resolve(governanceBundles);
@@ -192,5 +193,6 @@ export const shareEconomyBundles = async ({
   });
   getRUNBundle.resolve(economyBundles.getRUN);
   pegasusP.resolve(pegasusBundle);
+  centralP.resolve(economyBundles.centralSupply);
 };
 harden(shareEconomyBundles);
