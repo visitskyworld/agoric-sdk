@@ -145,6 +145,14 @@
  *     vatAdmin: VatAdminVat,
  *   },
  *   vatPowers: { D: DProxy },
+ *   vatParameters: {
+ *     argv: {
+ *       ROLE: string,
+ *       hardcodedClientAddresses: string[],
+ *     },
+ *     bootstrapManifest?: Record<string, Record<string, unknown>>,
+ *     governanceActions?: boolean,
+ *   },
  *   runBehaviors: (manifest: unknown) => Promise<unknown>,
  *   consume: EconomyBootstrapPowers['consume'] & {
  *     bankManager: Promise<BankManager>,

@@ -3,16 +3,7 @@ import { E, Far } from '@endo/far';
 import { GOVERNANCE_ACTIONS_MANIFEST } from './manifest.js';
 import { addRemote } from './utils.js';
 
-/**
- * @param {{
- *   vatParameters: { argv: Record<string, unknown> },
- *   vats: {
- *     vattp: VattpVat,
- *     comms: CommsVatRoot,
- *   },
- *   consume: { clientCreator: ERef<ClientCreator> },
- * }} powers
- */
+/** @param { BootstrapPowers } powers */
 export const installSimEgress = async ({
   vatParameters: { argv },
   vats: { vattp, comms },
@@ -21,18 +12,16 @@ export const installSimEgress = async ({
   const PROVISIONER_INDEX = 1;
 
   return Promise.all(
-    /** @type { string[] } */ (argv.hardcodedClientAddresses).map(
-      async (addr, i) => {
-        const clientFacet = await E(clientCreator).createClientFacet(
-          `solo${i}`,
-          addr,
-          ['agoric.ALL_THE_POWERS'],
-        );
+    argv.hardcodedClientAddresses.map(async (addr, i) => {
+      const clientFacet = await E(clientCreator).createClientFacet(
+        `solo${i}`,
+        addr,
+        ['agoric.ALL_THE_POWERS'],
+      );
 
-        await addRemote(addr, { vats: { comms, vattp } });
-        await E(comms).addEgress(addr, PROVISIONER_INDEX, clientFacet);
-      },
-    ),
+      await addRemote(addr, { vats: { comms, vattp } });
+      await E(comms).addEgress(addr, PROVISIONER_INDEX, clientFacet);
+    }),
   );
 };
 harden(installSimEgress);
