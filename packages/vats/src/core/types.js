@@ -105,7 +105,7 @@
  *     pegasusBundle: Promise<SourceBundle>,
  *     priceAuthority: ERef<PriceAuthority>,
  *     priceAuthorityAdmin: ERef<PriceAuthorityRegistryAdmin>,
- *     vaultFactoryCreator: ERef<unknown>,
+ *     vaultFactoryCreator: ERef<{ makeCollectFeesInvitation: () => Promise<Invitation> }>,
  *     vaultFactoryGovernorCreator: ERef<GovernedContractFacetAccess>,
  *     zoe: ERef<ZoeService>,
  *   },
