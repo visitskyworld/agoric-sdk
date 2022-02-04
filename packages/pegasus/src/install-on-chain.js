@@ -1,50 +1,34 @@
 // @ts-check
 import { E } from '@agoric/eventual-send';
+import '@agoric/vats/src/core/types.js';
 
-import pegasusBundle from './bundle-pegasus.js';
-
-/**
- * @param {Object} param0
- * @param {ERef<NameHub>} param0.agoricNames
- * @param {ERef<Board>} param0.board
- * @param {Store<NameHub, NameAdmin>} param0.nameAdmins
- * @param {NameHub} param0.namesByAddress
- * @param {ERef<ZoeService>} param0.zoe
- */
+/** @param { BootstrapPowers } powers */
 export async function installOnChain({
-  agoricNames,
-  board,
-  nameAdmins,
-  namesByAddress,
-  zoe,
+  consume: {
+    agoricNames,
+    board,
+    nameAdmins,
+    namesByAddress,
+    pegasusBundle,
+    zoe,
+  },
 }) {
   // Fetch the nameAdmins we need.
   const [installAdmin, instanceAdmin, uiConfigAdmin] = await Promise.all(
     ['installation', 'instance', 'uiConfig'].map(async edge => {
       const hub = /** @type {NameHub} */ (await E(agoricNames).lookup(edge));
-      return nameAdmins.get(hub);
+      return E(nameAdmins).get(hub);
     }),
   );
 
-  /** @type {Array<[string, SourceBundle]>} */
-  const nameBundles = [['pegasus', pegasusBundle]];
-  const [pegasusInstall] = await Promise.all(
-    nameBundles.map(async ([name, bundle]) => {
-      // Install the bundle in Zoe.
-      const install = await E(zoe).install(bundle);
-      // Advertise the installation in agoricNames.
-      await E(installAdmin).update(name, install);
-      // Return for variable assignment.
-      return install;
-    }),
-  );
+  const pegasusInstall = await E(zoe).install(pegasusBundle);
 
   const terms = harden({
     board,
     namesByAddress,
   });
 
-  const { instance, creatorFacet } = await E(zoe).startInstance(
+  const { instance } = await E(zoe).startInstance(
     pegasusInstall,
     undefined,
     terms,
@@ -77,12 +61,11 @@ export async function installOnChain({
     [uiConfigAdmin, pegasusUiDefaults.CONTRACT_NAME, pegasusUiDefaults],
     [installAdmin, pegasusUiDefaults.CONTRACT_NAME, pegasusInstall],
     [instanceAdmin, pegasusUiDefaults.CONTRACT_NAME, instance],
+    [installAdmin, pegasusUiDefaults.CONTRACT_NAME, pegasusInstall],
   ];
   await Promise.all(
     nameAdminUpdates.map(([nameAdmin, name, value]) =>
       E(nameAdmin).update(name, value),
     ),
   );
-
-  return creatorFacet;
 }
