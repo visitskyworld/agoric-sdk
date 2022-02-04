@@ -684,10 +684,16 @@ func (app *GaiaApp) MustInitController(ctx sdk.Context) {
 		ChainID:     ctx.ChainID(),
 		Params:      app.SwingSetKeeper.GetParams(ctx),
 		StoragePort: vm.GetPort("storage"),
-		SupplyCoins: sdk.NewCoins(app.BankKeeper.GetSupply(ctx, "urun")),
-		VibcPort:    app.vibcPort,
-		VbankPort:   app.vbankPort,
-		LienPort:    app.lienPort,
+		// Note we have a fixed supply of urun at genesis.
+		// We have to be able to mint ubld within the golang/cosmos side,
+		// as part of inflation.
+		SupplyCoins: sdk.NewCoins(
+			app.BankKeeper.GetSupply(ctx, "urun"),
+			app.BankKeeper.GetSupply(ctx, "ubld"),
+		),
+		VibcPort:  app.vibcPort,
+		VbankPort: app.vbankPort,
+		LienPort:  app.lienPort,
 	}
 	bz, err := json.Marshal(action)
 	if err == nil {
