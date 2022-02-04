@@ -39,17 +39,14 @@ harden(installSimEgress);
 
 /** @param {BootstrapPowers} powers */
 export const connectFaucet = async ({ consume: { zoe, client } }) => {
-  const makeFaucet = async _address => {
-    const userFeePurse = await E(zoe).makeFeePurse();
+  const userFeePurse = await E(zoe).makeFeePurse();
+  const faucet = Far('faucet', {
+    tapFaucet: () => [],
+    // TODO: obsolete getFeePurse, now that zoe fees are gone?
+    getFeePurse: () => userFeePurse,
+  });
 
-    return Far('faucet', {
-      tapFaucet: () => [],
-      // TODO: obsolete getFeePurse, now that zoe fees are gone?
-      getFeePurse: () => userFeePurse,
-    });
-  };
-
-  return E(client).assignBundle({ faucet: makeFaucet });
+  return E(client).assignBundle([_addr => ({ faucet })]);
 };
 harden(connectFaucet);
 
@@ -58,11 +55,10 @@ export const grantRunBehaviors = async ({
   runBehaviors,
   consume: { client },
 }) => {
-  const makeBehaviors = _address =>
-    Far('behaviors', { run: manifest => runBehaviors(manifest) });
-  return E(client).assignBundle({
-    behaviors: makeBehaviors,
-    governanceActions: _address => GOVERNANCE_ACTIONS_MANIFEST,
-  });
+  const bundle = {
+    behaviors: Far('behaviors', { run: manifest => runBehaviors(manifest) }),
+    governanceActions: GOVERNANCE_ACTIONS_MANIFEST,
+  };
+  return E(client).assignBundle([_addr => bundle]);
 };
 harden(grantRunBehaviors);

@@ -61,7 +61,7 @@ export const buildZoe = async ({
   return Promise.all([
     E(issuerAdmin).update('RUN', runIssuer),
     E(brandAdmin).update('RUN', runBrand),
-    E(client).assignBundle({ zoe: _addr => zoeService }),
+    E(client).assignBundle([_addr => ({ zoe: zoeService })]),
   ]);
 };
 harden(buildZoe);
@@ -82,7 +82,7 @@ export const makeBoard = async ({
 }) => {
   const board = E(E(loadVat)('board')).getBoard();
   resolveBoard(board);
-  return E(client).assignBundle({ board: _addr => board });
+  return E(client).assignBundle([_addr => ({ board })]);
 };
 harden(makeBoard);
 
@@ -109,14 +109,10 @@ export const makeAddressNameHubs = async ({ consume: { client }, produce }) => {
       ...rawMyAddressNameAdmin,
       getMyAddress: () => address,
     });
-    return myAddressNameAdmin;
+    return { agoricNames, namesByAddress, myAddressNameAdmin };
   };
 
-  return E(client).assignBundle({
-    agoricNames: _ => agoricNames,
-    namesByAddress: _ => namesByAddress,
-    myAddressNameAdmin: perAddress,
-  });
+  return E(client).assignBundle([perAddress]);
 };
 harden(makeAddressNameHubs);
 
@@ -132,9 +128,9 @@ export const makeClientBanks = async ({
 }) => {
   const mgr = E(E(loadVat)('bank')).makeBankManager(bridgeManager);
   bankManager.resolve(mgr);
-  return E(client).assignBundle({
-    bank: address => E(mgr).getBankForAddress(address),
-  });
+  return E(client).assignBundle([
+    address => ({ bank: E(mgr).getBankForAddress(address) }),
+  ]);
 };
 harden(makeClientBanks);
 

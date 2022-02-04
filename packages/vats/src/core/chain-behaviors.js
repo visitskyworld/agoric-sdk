@@ -14,7 +14,7 @@ import {
 
 import { makeBridgeManager as makeBridgeManagerKit } from '../bridge.js';
 
-import { callProperties } from './utils.js';
+import { mixProperties } from './utils.js';
 
 const { details: X } = assert;
 
@@ -74,13 +74,13 @@ export const makeClientManager = async ({
 
   // Cache the latest full property maker state.
   /** @type { PropertyMakers } */
-  let cachedPropertyMakers = {};
+  let cachedPropertyMakers = [];
 
   /** @type {ClientManager} */
   const clientManager = Far('chainClientManager', {
     assignBundle: newPropertyMakers => {
       // Write the property makers to the cache, and update the subscription.
-      cachedPropertyMakers = { ...cachedPropertyMakers, ...newPropertyMakers };
+      cachedPropertyMakers = [...cachedPropertyMakers, ...newPropertyMakers];
       publication.updateState(newPropertyMakers);
     },
   });
@@ -99,9 +99,9 @@ export const makeClientManager = async ({
       /** @type {Record<string, unknown>} */
       let clientHome = {};
 
-      const makeUpdatedConfiguration = (newPropertyMakers = {}) => {
+      const makeUpdatedConfiguration = (newPropertyMakers = []) => {
         // Specialize the property makers with the client address.
-        const newProperties = callProperties(newPropertyMakers, clientAddress);
+        const newProperties = mixProperties(newPropertyMakers, clientAddress);
         clientHome = { ...clientHome, ...newProperties };
         const config = harden({ clientAddress, clientHome });
         /** @type {typeof config} */
@@ -161,15 +161,15 @@ export const makeBridgeManager = async ({
 };
 harden(makeBridgeManager);
 
-/** @param {BootstrapPowers} powers */
+/**
+ * no free lunch on chain
+ *
+ * @param {BootstrapPowers} powers
+ */
 export const connectChainFaucet = async ({ consume: { client } }) => {
-  const makeFaucet = async _address => {
-    return Far('faucet', {
-      tapFaucet: () => [], // no free lunch on chain
-    });
-  };
+  const faucet = Far('faucet', { tapFaucet: () => harden([]) });
 
-  return E(client).assignBundle({ faucet: makeFaucet });
+  return E(client).assignBundle([_addr => ({ faucet })]);
 };
 harden(connectChainFaucet);
 

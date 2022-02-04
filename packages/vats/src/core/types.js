@@ -67,7 +67,7 @@
  *   assignBundle: (ps: PropertyMakers) => void
  * }} ClientManager
  *
- * @typedef {Record<string, (addr: string) => void>} PropertyMakers
+ * @typedef {Array<(addr: string) => Record<string, unknown>>} PropertyMakers
  */
 
 /**
