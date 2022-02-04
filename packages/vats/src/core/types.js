@@ -159,7 +159,7 @@
  *   },
  *   runBehaviors: (manifest: unknown) => Promise<unknown>,
  *   consume: EconomyBootstrapPowers['consume'] & {
- *     bankManager: Promise<BankManager>,
+ *     bankManager: BankManager,
  *     board: ERef<Board>,
  *     bridgeManager: ERef<OptionalBridgeManager>,
  *     client: ERef<ClientManager>,
@@ -170,7 +170,7 @@
  *     namesByAddressAdmin: ERef<NameAdmin>,
  *   },
  *   produce: EconomyBootstrapPowers['produce'] & {
- *     bankManager: Producer<unknown>,
+ *     bankManager: Producer<BankManager>,
  *     board: Producer<ERef<Board>>,
  *     bridgeManager: Producer<OptionalBridgeManager>,
  *     client: Producer<ClientManager>,
@@ -182,7 +182,10 @@
  *     namesByAddressAdmin: Producer<NameAdmin>,
  *   },
  * }} BootstrapPowers
- * @typedef {*} BankManager // TODO
+ * @typedef {ReturnType<Unpromise<BankVat>['makeBankManager']>} BankManager
+ * @typedef {ERef<ReturnType<import('../vat-bank.js').buildRootObject>>} BankVat
  * @typedef {ERef<ReturnType<import('../vat-provisioning.js').buildRootObject>>} ProvisioningVat
  * @typedef { import('@agoric/zoe/tools/priceAuthorityRegistry').PriceAuthorityRegistryAdmin } PriceAuthorityRegistryAdmin
  */
+
+/** @template T @typedef {import('@agoric/eventual-send').Unpromise<T>} Unpromise<T> */
