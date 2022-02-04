@@ -52,7 +52,6 @@
  * @property {AddVaultType} addVaultType
  * @property {() => Promise<Array<Collateral>>} getCollaterals
  * @property {() => Allocation} getRewardAllocation,
- * @property {() => Promise<Payment>} getBootstrapPayment
  * @property {() => Instance} getContractGovernor
  * @property {() => Promise<Invitation>} makeCollectFeesInvitation
  */
