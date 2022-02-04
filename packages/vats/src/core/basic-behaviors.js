@@ -96,6 +96,8 @@ export const makeAddressNameHubs = async ({ consume: { client }, produce }) => {
   produce.nameAdmins.resolve(nameAdmins);
   produce.agoricNames.resolve(agoricNames);
   produce.agoricNamesAdmin.resolve(agoricNamesAdmin);
+  produce.namesByAddress.resolve(namesByAddress);
+  produce.namesByAddressAdmin.resolve(namesByAddressAdmin);
 
   const perAddress = address => {
     // Create a name hub for this address.

@@ -152,6 +152,8 @@
  *     clientCreator: ERef<ClientCreator>,
  *     provisioning: ProvisioningVat,
  *     vatAdminSvc: ERef<VatAdminSvc>,
+ *     namesByAddress: ERef<NameHub>,
+ *     namesByAddressAdmin: ERef<NameAdmin>,
  *   },
  *   produce: EconomyBootstrapPowers['produce'] & {
  *     bankManager: Producer<unknown>,
@@ -162,6 +164,8 @@
  *     loadVat: Producer<VatLoader<unknown>>,
  *     provisioning: Producer<unknown>,
  *     vatAdminSvc: Producer<ERef<VatAdminSvc>>,
+ *     namesByAddress: Producer<NameHub>,
+ *     namesByAddressAdmin: Producer<NameAdmin>,
  *   },
  * }} BootstrapPowers
  * @typedef {*} BankManager // TODO
