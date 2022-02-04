@@ -133,6 +133,7 @@ export const GOVERNANCE_ACTIONS_MANIFEST = harden({
     produce: {
       ammBundle: true,
       getRUNBundle: true,
+      pegasusBundle: true,
       vaultBundles: true,
       governanceBundles: true,
     },

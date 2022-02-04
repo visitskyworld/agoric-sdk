@@ -11,6 +11,7 @@ import {
   economyBundles,
   ammBundle,
 } from '@agoric/run-protocol/src/importedBundles.js';
+import pegasusBundle from '@agoric/pegasus/bundles/bundle-pegasus.js';
 
 import { makeBridgeManager as makeBridgeManagerKit } from '../bridge.js';
 
@@ -180,6 +181,7 @@ export const shareEconomyBundles = async ({
     getRUNBundle,
     vaultBundles,
     governanceBundles: govP,
+    pegasusBundle: pegasusP,
   },
 }) => {
   govP.resolve(governanceBundles);
@@ -189,5 +191,6 @@ export const shareEconomyBundles = async ({
     liquidate: economyBundles.liquidate,
   });
   getRUNBundle.resolve(economyBundles.getRUN);
+  pegasusP.resolve(pegasusBundle);
 };
 harden(shareEconomyBundles);

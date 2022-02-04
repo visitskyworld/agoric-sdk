@@ -75,23 +75,28 @@ export const makeNameAdmins = () => {
 
   /** @type {Store<NameHub, NameAdmin>} */
   const nameAdmins = makeStore('nameHub');
-  ['brand', 'installation', 'issuer', 'instance', 'uiConfig'].forEach(
-    async nm => {
-      const { nameHub, nameAdmin } = makeNameHubKit();
-      agoricNamesAdmin.update(nm, nameHub);
-      nameAdmins.init(nameHub, nameAdmin);
-      if (nm === 'uiConfig') {
-        // Reserve the Vault Factory's config until we've populated it.
-        nameAdmin.reserve('vaultFactory');
-      } else if (['issuer', 'brand'].includes(nm)) {
-        keys(shared.assets).forEach(k => nameAdmin.reserve(k));
-      } else if (nm === 'installation') {
-        keys(shared.contract).forEach(k => nameAdmin.reserve(k));
-      } else if (nm === 'instance') {
-        keys(shared.instance).forEach(k => nameAdmin.reserve(k));
-      }
-    },
-  );
+  [
+    'brand',
+    'installation',
+    'issuer',
+    'instance',
+    'uiConfig',
+    'pegasus',
+  ].forEach(async nm => {
+    const { nameHub, nameAdmin } = makeNameHubKit();
+    agoricNamesAdmin.update(nm, nameHub);
+    nameAdmins.init(nameHub, nameAdmin);
+    if (nm === 'uiConfig') {
+      // Reserve the Vault Factory's config until we've populated it.
+      nameAdmin.reserve('vaultFactory');
+    } else if (['issuer', 'brand'].includes(nm)) {
+      keys(shared.assets).forEach(k => nameAdmin.reserve(k));
+    } else if (nm === 'installation') {
+      keys(shared.contract).forEach(k => nameAdmin.reserve(k));
+    } else if (nm === 'instance') {
+      keys(shared.instance).forEach(k => nameAdmin.reserve(k));
+    }
+  });
   return { agoricNames, agoricNamesAdmin, nameAdmins };
 };
 harden(makeNameAdmins);
