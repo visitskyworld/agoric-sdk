@@ -3,7 +3,7 @@ import { E, Far } from '@endo/far';
 import { makeIssuerKit } from '@agoric/ertp';
 
 import { makeNameHubKit } from '../nameHub.js';
-import { BLD_ISSUER_ENTRY } from '../issuers.js';
+import { BLD_ISSUER_ENTRY } from '../demoIssuers.js';
 
 import { feeIssuerConfig, collectNameAdmins, makeNameAdmins } from './utils.js';
 

@@ -26,7 +26,7 @@ import {
   demoIssuerEntries,
   fromCosmosIssuerEntries,
   BLD_ISSUER_ENTRY,
-} from './issuers';
+} from './demoIssuers';
 import { feeIssuerConfig } from './core/utils.js';
 
 const { multiply, floorDivide } = natSafeMath;
@@ -286,7 +286,7 @@ export function buildRootObject(vatPowers, vatParameters) {
       unusedBankPayments.init(centralBrand, bankBootstrapPayment);
     }
 
-    /** @type {Array<[string, import('./issuers').IssuerInitializationRecord]>} */
+    /** @type {Array<[string, import('./demoIssuers').IssuerInitializationRecord]>} */
     const rawIssuerEntries = [
       ...fromCosmosIssuerEntries({
         issuer: centralIssuer,
