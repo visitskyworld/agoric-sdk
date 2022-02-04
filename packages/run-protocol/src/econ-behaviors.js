@@ -284,9 +284,8 @@ export const startVaultFactory = async (
       harden({ electorateCreatorFacet }),
     );
 
-  const vaultFactoryInstance = await E(governorCreatorFacet).getInstance();
-  const [vaultFactoryCreator] = await Promise.all([
-    E(zoe).getTerms(vaultFactoryInstance),
+  const [vaultFactoryInstance, vaultFactoryCreator] = await Promise.all([
+    E(governorCreatorFacet).getInstance(),
     E(governorCreatorFacet).getCreatorFacet(),
   ]);
 
