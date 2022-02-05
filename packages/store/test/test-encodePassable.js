@@ -5,7 +5,10 @@
 import { test } from '@agoric/swingset-vat/tools/prepare-test-env-ava.js';
 import { isKey } from '../src/keys/checkKey.js';
 import { compareKeys, keyEQ } from '../src/keys/compareKeys.js';
-import { makeEncodeKey, makeDecodeKey } from '../src/patterns/encodeKey.js';
+import {
+  makeEncodePassable,
+  makeDecodePassable,
+} from '../src/patterns/encodePassable.js';
 import { compareRank, makeComparatorKit } from '../src/patterns/rankOrder.js';
 import { sample } from './test-rankOrder.js';
 
@@ -34,9 +37,9 @@ const decodeRemotable = e => {
 const compareRemotables = (x, y) =>
   compareRank(encodeRemotable(x), encodeRemotable(y));
 
-const encodeKey = makeEncodeKey(encodeRemotable);
+const encodePassable = makeEncodePassable({ encodeRemotable });
 
-const decodeKey = makeDecodeKey(decodeRemotable);
+const decodePassable = makeDecodePassable({ decodeRemotable });
 
 const { comparator: compareFull } = makeComparatorKit(compareRemotables);
 
@@ -68,12 +71,12 @@ const goldenPairs = harden([
 
 test('golden round trips', t => {
   for (const [k, e] of goldenPairs) {
-    t.is(encodeKey(k), e, 'does k encode as expected');
-    t.is(decodeKey(e), k, 'does the key round trip through the encoding');
+    t.is(encodePassable(k), e, 'does k encode as expected');
+    t.is(decodePassable(e), k, 'does the key round trip through the encoding');
   }
   // Not round trips
-  t.is(encodeKey(-0), 'f8000000000000000');
-  t.is(decodeKey('f0000000000000000'), NaN);
+  t.is(encodePassable(-0), 'f8000000000000000');
+  t.is(decodePassable('f0000000000000000'), NaN);
 });
 
 const orderInvariants = (t, x, y) => {
@@ -97,11 +100,11 @@ const orderInvariants = (t, x, y) => {
       t.is(keyComp, fullComp);
       t.is(keyComp, rankComp);
     }
-    const ex = encodeKey(x);
-    const ey = encodeKey(y);
+    const ex = encodePassable(x);
+    const ey = encodePassable(y);
     const encComp = compareRank(ex, ey);
-    const dx = decodeKey(ex);
-    const dy = decodeKey(ey);
+    const dx = decodePassable(ex);
+    const dy = decodePassable(ey);
     t.assert(keyEQ(x, dx));
     t.assert(keyEQ(y, dy));
     t.is(encComp, fullComp);

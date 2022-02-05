@@ -57,11 +57,11 @@ export {
 } from './patterns/patternMatchers.js';
 export { compareRank, isRankSorted, sortByRank } from './patterns/rankOrder.js';
 export {
-  makeDecodeKey,
-  makeEncodeKey,
+  makeDecodePassable,
+  makeEncodePassable,
   zeroPad,
   BIGINT_TAG_LEN,
-} from './patterns/encodeKey.js';
+} from './patterns/encodePassable.js';
 
 export { makeScalarWeakSetStore } from './stores/scalarWeakSetStore.js';
 export { makeScalarSetStore } from './stores/scalarSetStore.js';
