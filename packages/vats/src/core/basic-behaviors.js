@@ -3,9 +3,42 @@ import { E, Far } from '@endo/far';
 import { makeIssuerKit } from '@agoric/ertp';
 
 import { makeNameHubKit } from '../nameHub.js';
-import { BLD_ISSUER_ENTRY } from '../demoIssuers.js';
 
 import { feeIssuerConfig, collectNameAdmins, makeNameAdmins } from './utils.js';
+
+const Tokens = {
+  RUN: {
+    denom: 'urun',
+    suggestedName: 'Agoric RUN currency',
+  },
+  BLD: {
+    denom: 'ubld',
+    suggestedName: 'Agoric staking token',
+  },
+};
+
+/**
+ * In golang/cosmos/app/app.go, we define
+ * cosmosInitAction with type AG_COSMOS_INIT,
+ * with the following shape.
+ *
+ * The urun supplyCoins value is taken from geneis,
+ * thereby authorizing the minting an initial supply of RUN.
+ */
+// eslint-disable-next-line no-unused-vars
+const bootMsgEx = {
+  type: 'AG_COSMOS_INIT',
+  chainID: 'agoric',
+  storagePort: 1,
+  supplyCoins: [
+    { denom: 'provisionpass', amount: '100' },
+    { denom: 'sendpacketpass', amount: '100' },
+    { denom: 'ubld', amount: '1000000000000000' },
+    { denom: 'urun', amount: '50000000000' },
+  ],
+  vbankPort: 3,
+  vibcPort: 2,
+};
 
 /**
  * TODO: review behaviors carefully for powers that go out of scope,
@@ -136,10 +169,47 @@ export const makeClientBanks = async ({
 };
 harden(makeClientBanks);
 
-/** @param {BootstrapPowers} powers */
-export const makeBLDKit = async ({
-  consume: { agoricNames, bankManager, nameAdmins },
+/**
+ * @param { BootstrapPowers & {
+ *   vatParameters: { argv: { bootMsg?: typeof bootMsgEx }}
+ * }} powers
+ */
+export const mintCentralSupply = async ({
+  vatParameters: {
+    argv: { bootMsg },
+  },
+  consume: {
+    agoricNames,
+    bankManager,
+    centralSupplyBundle,
+    feeMintAccess: feeMintAccessP,
+    zoe,
+  },
+  produce: { initialSupply },
 }) => {
+  const { supplyCoins = [] } = bootMsg || {};
+
+  const centralBootstrapSupply = supplyCoins.find(
+    ({ denom }) => denom === CENTRAL_DENOM_NAME,
+  ) || { amount: '0' };
+
+  const bootstrapPaymentValue = Nat(BigInt(centralBootstrapSupply.amount));
+
+  const installation = E(zoe).install(centralSupplyBundle);
+  const [feeMintAccess, runIssuer] = await Promise.all([
+    feeMintAccessP,
+    E(agoricNames).lookup('issuer', 'RUN'),
+  ]);
+  const start = E(zoe).startInstance(
+    installation,
+    { Central: runIssuer },
+    { bootstrapPaymentValue },
+    { feeMintAccess },
+  );
+  const payment = await E(E.get(start).creatorFacet).getBootstrapPayment();
+  // TODO: is it OK for creatorFacet, instance, installation to be dropped?
+  initialSupply.resolve(payment);
+
   const [issuerName, { bankDenom, bankPurse, issuerArgs }] = BLD_ISSUER_ENTRY;
   assert(issuerArgs);
   const kit = makeIssuerKit(issuerName, ...issuerArgs); // TODO: should this live in another vat???
@@ -155,4 +225,52 @@ export const makeBLDKit = async ({
     E(brandAdmin).update(issuerName, brand),
   ]);
 };
-harden(makeBLDKit);
+
+/**
+ * Note that we can still add these fake currencies to be traded on the AMM.
+ * Just don't add a defaultPurses entry if you don't want them to be given out
+ * on bootstrap.  They might still be tradable on the AMM.
+ *
+ * @param {boolean} noObviouslyFakeCurrencies
+ * @returns {Array<[string, IssuerInitializationRecord]>}
+ */
+
+/** @param { BootstrapPowers } powers */
+export const addBankAssets = async ({ consume: { bankManager } }) => {
+  // Add bank assets.
+  await Promise.all(
+    issuerEntries.map(async entry => {
+      const [issuerName, record] = entry;
+      const { bankDenom, bankPurse, brand, issuer, bankPayment } = record;
+      if (!bankDenom || !bankPurse) {
+        return undefined;
+      }
+
+      assert(brand);
+      assert(issuer);
+
+      const makeMintKit = async () => {
+        // We need to obtain the mint in order to mint the tokens when they
+        // come from the bank.
+        // FIXME: Be more careful with the mint.
+        const mint = await E(vats.mints).getMint(issuerName);
+        return harden({ brand, issuer, mint });
+      };
+
+      let kitP;
+      if (bankBridgeManager && bankPayment) {
+        // The bank needs the payment to back its existing bridge peg.
+        kitP = harden({ brand, issuer, payment: bankPayment });
+      } else if (unusedBankPayments.has(brand)) {
+        // No need to back the currency.
+        kitP = harden({ brand, issuer });
+      } else {
+        kitP = makeMintKit();
+      }
+
+      const kit = await kitP;
+      return E(bankManager).addAsset(bankDenom, issuerName, bankPurse, kit);
+    }),
+  );
+};
+harden(addBankAssets);
