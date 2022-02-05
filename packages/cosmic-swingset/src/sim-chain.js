@@ -62,8 +62,8 @@ export async function connectToFakeChain(basedir, GCI, delay, inbound) {
     noFakeCurrencies: !process.env.FAKE_CURRENCIES,
     bootMsg: {
       supplyCoins: [
-        { denom: 'ubld', amount: `${50_000n * 10n ** 6n}` },
-        { denom: 'urun', amount: `${1_000_000n * 10n ** 6n}` },
+        { denom: 'ubld', amount: `${1_000_000_000n * 10n ** 6n}` },
+        { denom: 'urun', amount: `${50_000_000n * 10n ** 6n}` },
       ],
       params: DEFAULT_SIM_SWINGSET_PARAMS,
     },
