@@ -12,10 +12,15 @@ import {
   ammBundle,
 } from '@agoric/run-protocol/src/importedBundles.js';
 import pegasusBundle from '@agoric/pegasus/bundles/bundle-pegasus.js';
+import {
+  makeLoopbackProtocolHandler,
+  makeEchoConnectionHandler,
+  makeNonceMaker,
+} from '@agoric/swingset-vat/src/vats/network/index.js';
 
 import { makeBridgeManager as makeBridgeManagerKit } from '../bridge.js';
 
-import { mixProperties } from './utils.js';
+import { collectNameAdmins, mixProperties } from './utils.js';
 
 const { details: X } = assert;
 
@@ -196,3 +201,158 @@ export const shareEconomyBundles = async ({
   centralP.resolve(economyBundles.centralSupply);
 };
 harden(shareEconomyBundles);
+
+/**
+ * @param { BootstrapPowers & {
+ *   consume: { loadVat: VatLoader<any> }
+ * }} powers
+ * @typedef { import('@agoric/swingset-vat/src/vats/network/router.js').RouterProtocol} RouterProtocol
+ * @typedef {ERef<ReturnType<import('../vat-ibc.js').buildRootObject>>} IBCVat
+ *
+ * // TODO: why doesn't overloading VatLoader work???
+ * @typedef { ((name: 'network') => RouterProtocol) &
+ *            ((name: 'ibc') => IBCVat) } VatLoader2
+ */
+export const registerNetworkProtocols = async ({
+  consume: {
+    agoricNames,
+    nameAdmins,
+    loadVat,
+    bridgeManager: bridgeManagerP,
+    zoe,
+    provisioning,
+  },
+}) => {
+  /** @type {{ network: ERef<RouterProtocol>, ibc: IBCVat, provisioning: ProvisioningVat}} */
+  const vats = {
+    network: E(loadVat)('network'),
+    ibc: E(loadVat)('ibc'),
+    provisioning,
+  };
+
+  const ps = [];
+  // Every vat has a loopback device.
+  ps.push(
+    E(vats.network).registerProtocolHandler(
+      ['/local'],
+      makeLoopbackProtocolHandler(),
+    ),
+  );
+  const dibcBridgeManager = await bridgeManagerP;
+  if (dibcBridgeManager) {
+    // We have access to the bridge, and therefore IBC.
+    const callbacks = Far('callbacks', {
+      downcall(method, obj) {
+        return dibcBridgeManager.toBridge('dibc', {
+          ...obj,
+          type: 'IBC_METHOD',
+          method,
+        });
+      },
+    });
+    const ibcHandler = await E(vats.ibc).createInstance(callbacks);
+    dibcBridgeManager.register('dibc', ibcHandler);
+    ps.push(
+      E(vats.network).registerProtocolHandler(
+        ['/ibc-port', '/ibc-hop'],
+        ibcHandler,
+      ),
+    );
+  } else {
+    const loHandler = makeLoopbackProtocolHandler(
+      makeNonceMaker('ibc-channel/channel-'),
+    );
+    ps.push(E(vats.network).registerProtocolHandler(['/ibc-port'], loHandler));
+  }
+  await Promise.all(ps);
+
+  // Add an echo listener on our ibc-port network (whether real or virtual).
+  const echoPort = await E(vats.network).bind('/ibc-port/echo');
+  E(echoPort).addListener(
+    Far('listener', {
+      async onAccept(_port, _localAddr, _remoteAddr, _listenHandler) {
+        return harden(makeEchoConnectionHandler());
+      },
+      async onListen(port, _listenHandler) {
+        console.debug(`listening on echo port: ${port}`);
+      },
+    }),
+  );
+
+  // In the promise space for a solo, this lookup doesn't resolve,
+  // so we never bother with the rest.
+  // TODO: is this leak OK?
+  E(agoricNames)
+    .lookup('instance', 'pegasus')
+    .then(async pegasusInstance => {
+      const pegasus = E(zoe).getPublicFacet(pegasusInstance);
+
+      if (pegasus) {
+        const [pegasusConnectionsAdmin] = await collectNameAdmins(
+          ['pegasus'],
+          agoricNames,
+          nameAdmins,
+        );
+
+        // Add the Pegasus transfer port.
+        const port = await E(vats.network).bind('/ibc-port/transfer');
+        E(port).addListener(
+          Far('listener', {
+            async onAccept(_port, _localAddr, _remoteAddr, _listenHandler) {
+              const chandlerP = E(pegasus).makePegConnectionHandler();
+              const proxyMethod = name => (...args) =>
+                E(chandlerP)[name](...args);
+              const onOpen = proxyMethod('onOpen');
+              const onClose = proxyMethod('onClose');
+
+              let localAddr;
+              return Far('pegasusConnectionHandler', {
+                onOpen(c, actualLocalAddr, ...args) {
+                  localAddr = actualLocalAddr;
+                  if (pegasusConnectionsAdmin) {
+                    pegasusConnectionsAdmin.update(localAddr, c);
+                  }
+                  return onOpen(c, ...args);
+                },
+                onReceive: proxyMethod('onReceive'),
+                onClose(c, ...args) {
+                  try {
+                    return onClose(c, ...args);
+                  } finally {
+                    if (pegasusConnectionsAdmin) {
+                      pegasusConnectionsAdmin.delete(localAddr);
+                    }
+                  }
+                },
+              });
+            },
+            async onListen(p, _listenHandler) {
+              console.debug(`Listening on Pegasus transfer port: ${p}`);
+            },
+          }),
+        );
+      }
+    })
+    .catch(reason => console.error(reason)); // TODO: catch/log suffices?
+
+  if (dibcBridgeManager) {
+    // Register a provisioning handler over the bridge.
+    const handler = Far('provisioningHandler', {
+      async fromBridge(_srcID, obj) {
+        switch (obj.type) {
+          case 'PLEASE_PROVISION': {
+            const { nickname, address, powerFlags } = obj;
+            return E(vats.provisioning)
+              .pleaseProvision(nickname, address, powerFlags)
+              .catch(e =>
+                console.error(`Error provisioning ${nickname} ${address}:`, e),
+              );
+          }
+          default:
+            assert.fail(X`Unrecognized request ${obj.type}`);
+        }
+      },
+    });
+    dibcBridgeManager.register('provision', handler);
+  }
+};
