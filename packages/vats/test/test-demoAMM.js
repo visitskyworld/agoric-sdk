@@ -2,10 +2,13 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { test } from '@agoric/swingset-vat/tools/prepare-test-env-ava.js';
 import { AmountMath, makeIssuerKit } from '@agoric/ertp';
+import { setupAmmServices } from '@agoric/run-protocol/test/amm/vpool-xyk-amm/setup.js';
 
+import buildManualTimer from '@agoric/zoe/tools/manualTimer.js';
 import {
   AMMDemoState,
   ammPoolRunDeposits,
+  fundAMM,
   poolRates,
   splitAllCentralPayments,
 } from '../src/demoIssuers.js';
@@ -122,4 +125,22 @@ test('poolRates: spot check WETH', t => {
   Object.entries(expected).forEach(([prop, val]) =>
     t.is(showRatio(rates[prop]), val),
   );
+});
+
+test('fundAMM bootstrap behavior', async t => {
+  const centralR = makeIssuerKit('central');
+  const electorateTerms = { committeeName: 'The Cabal', committeeSize: 1 };
+  const timer = buildManualTimer(console.log);
+
+  const {
+    zoe,
+    amm,
+    committeeCreator,
+    governor,
+    installs,
+    invitationAmount,
+    space,
+  } = await setupAmmServices(electorateTerms, centralR, timer);
+  await fundAMM(space);
+  t.is('@@actual', '@@expected');
 });

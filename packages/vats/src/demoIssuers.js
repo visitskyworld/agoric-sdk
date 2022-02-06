@@ -260,7 +260,7 @@ export const poolRates = (issuerName, record, kits, central) => {
 };
 
 /**
- * @param { BootstrapPowers & {
+ * @param { EconomyBootstrapPowers & {
  *   consume: { loadVat: VatLoader<MintsVat> }
  * }} powers
  */
