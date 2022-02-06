@@ -1,7 +1,6 @@
 // @ts-check
 import { assert } from '@agoric/assert';
 import { AmountMath, AssetKind } from '@agoric/ertp';
-import { Nat } from '@agoric/nat';
 import { Collect } from '@agoric/run-protocol/src/collect.js';
 import {
   natSafeMath,
@@ -12,8 +11,8 @@ import { E } from '@endo/far';
 const { multiply, floorDivide } = natSafeMath;
 const { entries, fromEntries, keys, values } = Object;
 
-export const CENTRAL_ISSUER_NAME = 'RUN';
-const CENTRAL_DENOM_NAME = 'urun';
+const CENTRAL_ISSUER_NAME = 'RUN';
+const QUOTE_INTERVAL = 5 * 60;
 
 /** @type {Record<string, number>} */
 const DecimalPlaces = {
@@ -267,12 +266,14 @@ export const poolRates = (issuerName, record, kits, central) => {
  */
 export const fundAMM = async ({
   consume: {
-    zoe,
     agoricNames,
     centralSupplyBundle: centralP,
+    chainTimerService,
     feeMintAccess: feeMintAccessP,
     loadVat,
+    priceAuthorityAdmin,
     vaultFactoryCreator,
+    zoe,
   },
 }) => {
   const { ammTotal: ammDepositValue, balances } = ammPoolRunDeposits(
@@ -315,11 +316,17 @@ export const fundAMM = async ({
   );
   const central = kits[CENTRAL_ISSUER_NAME];
 
-  /** @type {[SourceBundle, FeeMintAccess, Instance]} */
-  const [centralSupplyBundle, feeMintAccess, ammInstance] = await Promise.all([
+  /** @type {[SourceBundle, FeeMintAccess, Instance, TimerService]} */
+  const [
+    centralSupplyBundle,
+    feeMintAccess,
+    ammInstance,
+    timer,
+  ] = await Promise.all([
     centralP,
     feeMintAccessP,
     E(agoricNames).lookup('instance', 'amm'),
+    chainTimerService,
   ]);
   const ammPublicFacet = await E(zoe).getPublicFacet(ammInstance);
 
@@ -408,7 +415,7 @@ export const fundAMM = async ({
       actualBrandIn: brandIn,
       actualBrandOut: brandOut,
       tradeList,
-      timer: chainTimerService,
+      timer,
       quoteInterval: QUOTE_INTERVAL,
     });
 
@@ -417,13 +424,24 @@ export const fundAMM = async ({
   const brandsWithPriceAuthorities = await E(ammPublicFacet).getAllPoolBrands();
 
   await Promise.all(
-    issuerEntries.map(async entry => {
+    // TODO: exactly what is the list of things to iterate here?
+    entries(AMMDemoState).map(async ([issuerName, record]) => {
       // Create priceAuthority pairs for centralIssuer based on the
       // AMM or FakePriceAuthority.
-      const [issuerName, record] = entry;
       console.debug(`Creating ${issuerName}-${CENTRAL_ISSUER_NAME}`);
-      const { tradesGivenCentral, issuer } = record;
-
+      const issuer = kits[issuerName].issuer;
+      const { trades } = record;
+      /** @param { bigint } n */
+      const inCollateral = n => n * 10n ** BigInt(DecimalPlaces[issuerName]);
+      const tradesGivenCentral = trades.map(
+        ({
+          central: num,
+          collateral: unit,
+        }) => /** @type {[bigint, bigint]} */ ([
+          run2places(num),
+          inCollateral(unit),
+        ]),
+      );
       assert(issuer);
       const brand = await E(issuer).getBrand();
       let toCentral;
