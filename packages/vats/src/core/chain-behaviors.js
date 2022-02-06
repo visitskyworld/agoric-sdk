@@ -300,8 +300,10 @@ export const registerNetworkProtocols = async ({
           Far('listener', {
             async onAccept(_port, _localAddr, _remoteAddr, _listenHandler) {
               const chandlerP = E(pegasus).makePegConnectionHandler();
-              const proxyMethod = name => (...args) =>
-                E(chandlerP)[name](...args);
+              const proxyMethod =
+                name =>
+                (...args) =>
+                  E(chandlerP)[name](...args);
               const onOpen = proxyMethod('onOpen');
               const onClose = proxyMethod('onClose');
 
