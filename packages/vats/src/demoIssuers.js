@@ -56,7 +56,7 @@ const BASIS = 10_000n;
  *   trades: Array<{ central: number, collateral: bigint}>
  * }>}
  */
-const AMMDemoState = {
+export const AMMDemoState = {
   // TODO: getRUN makes BLD obsolete here
   BLD: {
     config: {
@@ -149,6 +149,53 @@ const AMMDemoState = {
   },
 };
 
+/** @param { number } f */
+const run2places = f =>
+  BigInt(Math.round(f * 100)) *
+  10n ** BigInt(DecimalPlaces[CENTRAL_ISSUER_NAME] - 2);
+
+/**
+ * Calculate how much RUN we need to fund the AMM pools
+ *
+ * @param {typeof AMMDemoState} issuers
+ */
+export const ammPoolRunDeposits = issuers => {
+  let ammTotal = 0n;
+  const ammPoolIssuers = /** @type {string[]} */ ([]);
+  const ammPoolBalances = /** @type {bigint[]} */ ([]);
+  entries(issuers).forEach(([issuerName, record]) => {
+    if (!record.config) {
+      // skip RUN and fake issuers
+      return;
+    }
+    assert(record.trades);
+
+    /** @param { bigint } n */
+    const inCollateral = n => n * 10n ** DecimalPlaces[issuerName];
+
+    // The initial trade represents the fair value of RUN for collateral.
+    const initialTrade = record.trades[0];
+    // The collateralValue to be deposited is given, and we want to deposit
+    // the same value of RUN in the pool. For instance, We're going to
+    // deposit 2 * 10^13 BLD, and 10^6 build will trade for 28.9 * 10^6 RUN
+    const poolBalance = floorDivide(
+      multiply(
+        inCollateral(record.config.collateralValue),
+        run2places(initialTrade.central),
+      ),
+      inCollateral(initialTrade.collateral),
+    );
+    ammTotal += poolBalance;
+    ammPoolIssuers.push(issuerName);
+    ammPoolBalances.push(poolBalance);
+  });
+  return {
+    ammTotal,
+    ammPoolBalances,
+    ammPoolIssuers,
+  };
+};
+
 /**
  * @param { BootstrapPowers & {
  *   consume: { loadVat: VatLoader<MintsVat> }
@@ -164,53 +211,6 @@ export const fundAMM = async ({
     vaultFactoryCreator,
   },
 }) => {
-  /** @param { number } f */
-  const run2places = f =>
-    BigInt(Math.round(f * 100)) *
-    10n ** BigInt(DecimalPlaces[CENTRAL_ISSUER_NAME] - 2);
-
-  /**
-   * Calculate how much RUN we need to fund the AMM pools
-   *
-   * @param {typeof AMMDemoState} issuers
-   */
-  function ammPoolRunDeposits(issuers) {
-    let ammTotal = 0n;
-    const ammPoolIssuers = /** @type {string[]} */ ([]);
-    const ammPoolBalances = /** @type {bigint[]} */ ([]);
-    entries(issuers).forEach(([issuerName, record]) => {
-      if (!record.config) {
-        // skip RUN and fake issuers
-        return;
-      }
-      assert(record.trades);
-
-      /** @param { bigint } n */
-      const inCollateral = n => n * 10n ** DecimalPlaces[issuerName];
-
-      // The initial trade represents the fair value of RUN for collateral.
-      const initialTrade = record.trades[0];
-      // The collateralValue to be deposited is given, and we want to deposit
-      // the same value of RUN in the pool. For instance, We're going to
-      // deposit 2 * 10^13 BLD, and 10^6 build will trade for 28.9 * 10^6 RUN
-      const poolBalance = floorDivide(
-        multiply(
-          inCollateral(record.config.collateralValue),
-          run2places(initialTrade.central),
-        ),
-        inCollateral(initialTrade.collateral),
-      );
-      ammTotal += poolBalance;
-      ammPoolIssuers.push(issuerName);
-      ammPoolBalances.push(poolBalance);
-    });
-    return {
-      ammTotal,
-      ammPoolBalances,
-      ammPoolIssuers,
-    };
-  }
-
   const {
     ammTotal: ammDepositValue,
     ammPoolBalances,
