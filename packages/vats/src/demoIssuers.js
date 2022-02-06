@@ -10,11 +10,12 @@ import {
 import { E } from '@endo/far';
 
 const { multiply, floorDivide } = natSafeMath;
-const { entries, fromEntries, keys } = Object;
+const { entries, fromEntries, keys, values } = Object;
 
 export const CENTRAL_ISSUER_NAME = 'RUN';
 const CENTRAL_DENOM_NAME = 'urun';
 
+/** @type {Record<string, number>} */
 const DecimalPlaces = {
   BLD: 6,
   [CENTRAL_ISSUER_NAME]: 6,
@@ -161,39 +162,102 @@ const run2places = f =>
  */
 export const ammPoolRunDeposits = issuers => {
   let ammTotal = 0n;
-  const ammPoolIssuers = /** @type {string[]} */ ([]);
-  const ammPoolBalances = /** @type {bigint[]} */ ([]);
-  entries(issuers).forEach(([issuerName, record]) => {
-    if (!record.config) {
-      // skip RUN and fake issuers
-      return;
-    }
-    assert(record.trades);
+  const balanceEntries = entries(issuers)
+    .filter(([_i, { config }]) => config) // skip RUN and fake issuers
+    .map(([issuerName, record]) => {
+      assert(record.config);
+      assert(record.trades);
 
-    /** @param { bigint } n */
-    const inCollateral = n => n * 10n ** DecimalPlaces[issuerName];
+      /** @param { bigint } n */
+      const inCollateral = n => n * 10n ** BigInt(DecimalPlaces[issuerName]);
 
-    // The initial trade represents the fair value of RUN for collateral.
-    const initialTrade = record.trades[0];
-    // The collateralValue to be deposited is given, and we want to deposit
-    // the same value of RUN in the pool. For instance, We're going to
-    // deposit 2 * 10^13 BLD, and 10^6 build will trade for 28.9 * 10^6 RUN
-    const poolBalance = floorDivide(
-      multiply(
-        inCollateral(record.config.collateralValue),
-        run2places(initialTrade.central),
-      ),
-      inCollateral(initialTrade.collateral),
-    );
-    ammTotal += poolBalance;
-    ammPoolIssuers.push(issuerName);
-    ammPoolBalances.push(poolBalance);
-  });
+      // The initial trade represents the fair value of RUN for collateral.
+      const initialTrade = record.trades[0];
+      // The collateralValue to be deposited is given, and we want to deposit
+      // the same value of RUN in the pool. For instance, We're going to
+      // deposit 2 * 10^13 BLD, and 10^6 build will trade for 28.9 * 10^6 RUN
+      const poolBalance = floorDivide(
+        multiply(
+          inCollateral(record.config.collateralValue),
+          run2places(initialTrade.central),
+        ),
+        inCollateral(initialTrade.collateral),
+      );
+      ammTotal += poolBalance;
+      return /** @type {[string, bigint]} */ ([issuerName, poolBalance]);
+    });
   return {
     ammTotal,
-    ammPoolBalances,
-    ammPoolIssuers,
+    balances: fromEntries(balanceEntries),
   };
+};
+
+/**
+ * @param {Payment} bootstrapPayment
+ * @param {Record<string, bigint>} balances
+ * @param {{ issuer: Issuer, brand: Brand }} central
+ */
+export const splitAllCentralPayments = async (
+  bootstrapPayment,
+  balances,
+  central,
+) => {
+  const ammPoolAmounts = values(balances).map(b =>
+    AmountMath.make(central.brand, b),
+  );
+
+  const allPayments = await E(central.issuer).splitMany(
+    bootstrapPayment,
+    ammPoolAmounts,
+  );
+
+  const issuerMap = fromEntries(
+    keys(balances).map((name, i) => [
+      name,
+      {
+        payment: allPayments[i],
+        amount: ammPoolAmounts[i],
+      },
+    ]),
+  );
+
+  return issuerMap;
+};
+
+/**
+ * @param {string} issuerName
+ * @param {typeof AMMDemoState['ATOM']} record
+ * @param {Record<string, { issuer: Issuer, brand: Brand }>} kits
+ * @param {{ issuer: Issuer, brand: Brand }} central
+ */
+export const poolRates = (issuerName, record, kits, central) => {
+  /** @param { bigint } n */
+  const inCollateral = n => n * 10n ** BigInt(DecimalPlaces[issuerName]);
+  const config = record.config;
+  assert(config);
+  assert(record.trades);
+  const initialPrice = record.trades[0];
+  assert(initialPrice);
+  const initialPriceNumerator = run2places(record.trades[0].central);
+
+  /**
+   * @param {Rational} r
+   * @param {Brand} b
+   */
+  const toRatio = ([n, d], b) => makeRatio(n, b, d);
+  const rates = {
+    initialPrice: makeRatio(
+      initialPriceNumerator,
+      central.brand,
+      inCollateral(initialPrice.collateral),
+      kits[issuerName].brand,
+    ),
+    initialMargin: toRatio(config.initialMargin, central.brand),
+    liquidationMargin: toRatio(config.liquidationMargin, central.brand),
+    interestRate: toRatio(config.interestRate, central.brand),
+    loanFee: toRatio(config.loanFee, central.brand),
+  };
+  return { rates, initialValue: inCollateral(config.collateralValue) };
 };
 
 /**
@@ -211,50 +275,29 @@ export const fundAMM = async ({
     vaultFactoryCreator,
   },
 }) => {
-  const {
-    ammTotal: ammDepositValue,
-    ammPoolBalances,
-    ammPoolIssuers,
-  } = ammPoolRunDeposits(AMMDemoState);
-
-  const [centralIssuer, centralBrand, ammInstance] = await Promise.all([
-    E(agoricNames).lookup('issuer', CENTRAL_ISSUER_NAME),
-    E(agoricNames).lookup('brand', CENTRAL_ISSUER_NAME),
-    E(agoricNames).lookup('instance', 'amm'),
-  ]);
-  const ammPublicFacet = await E(zoe).getPublicFacet(ammInstance);
-
-  const [centralSupplyBundle, feeMintAccess] = await Promise.all([
-    centralP,
-    feeMintAccessP,
-  ]);
-  const { creatorFacet: ammSupplier } = await E(zoe).startInstance(
-    E(zoe).install(centralSupplyBundle),
-    { Central: centralIssuer },
-    { bootstrapPaymentValue: ammDepositValue },
-    { feeMintAccess },
+  const { ammTotal: ammDepositValue, balances } = ammPoolRunDeposits(
+    AMMDemoState,
   );
-  /** @type { Payment } */
-  const ammBootstrapPayment = await E(ammSupplier).getBootstrapPayment();
 
   const vats = {
     mints: E(loadVat)('mints'),
   };
 
-  const [bldIssuer, bldBrand] = await Promise.all([
-    E(agoricNames).lookup('issuer', 'BLD'),
-    E(agoricNames).lookup('brand', 'BLD'),
-  ]);
-
   const kits = await Collect.allValues(
     Collect.mapValues(
-      fromEntries(keys(AMMDemoState).map(n => [n, n])),
+      fromEntries(
+        [CENTRAL_ISSUER_NAME, ...keys(AMMDemoState)].map(n => [n, n]),
+      ),
       async issuerName => {
         switch (issuerName) {
-          case 'RUN':
-            return { issuer: centralIssuer, brand: centralBrand };
-          case 'BLD':
-            return { issuer: bldIssuer, brand: bldBrand };
+          case CENTRAL_ISSUER_NAME:
+          case 'BLD': {
+            const [issuer, brand] = await Promise.all([
+              E(agoricNames).lookup('issuer', issuerName),
+              E(agoricNames).lookup('brand', issuerName),
+            ]);
+            return { issuer, brand };
+          }
           default: {
             const issuer = await E(vats.mints).makeMintAndIssuer(
               issuerName,
@@ -270,65 +313,44 @@ export const fundAMM = async ({
       },
     ),
   );
+  const central = kits[CENTRAL_ISSUER_NAME];
+
+  /** @type {[SourceBundle, FeeMintAccess, Instance]} */
+  const [centralSupplyBundle, feeMintAccess, ammInstance] = await Promise.all([
+    centralP,
+    feeMintAccessP,
+    E(agoricNames).lookup('instance', 'amm'),
+  ]);
+  const ammPublicFacet = await E(zoe).getPublicFacet(ammInstance);
+
+  const { creatorFacet: ammSupplier } = await E(zoe).startInstance(
+    E(zoe).install(centralSupplyBundle),
+    { Central: central.issuer },
+    { bootstrapPaymentValue: ammDepositValue },
+    { feeMintAccess },
+  );
+  /** @type { Payment } */
+  const ammBootstrapPayment = await E(ammSupplier).getBootstrapPayment();
 
   async function addAllCollateral() {
-    async function splitAllCentralPayments() {
-      const ammPoolAmounts = ammPoolBalances.map(b =>
-        AmountMath.make(centralBrand, b),
-      );
-
-      const allPayments = await E(centralIssuer).splitMany(
-        ammBootstrapPayment,
-        ammPoolAmounts,
-      );
-
-      const issuerMap = {};
-      for (let i = 0; i < ammPoolBalances.length; i += 1) {
-        const issuerName = ammPoolIssuers[i];
-        issuerMap[issuerName] = {
-          payment: allPayments[i],
-          amount: ammPoolAmounts[i],
-        };
-      }
-      return issuerMap;
-    }
-
-    const issuerMap = await splitAllCentralPayments();
+    const issuerMap = await splitAllCentralPayments(
+      ammBootstrapPayment,
+      balances,
+      central,
+    );
 
     return Promise.all(
       entries(AMMDemoState).map(async ([issuerName, record]) => {
-        /** @param { bigint } n */
-        const inCollateral = n => n * 10n ** BigInt(DecimalPlaces[issuerName]);
-        const config = record.config;
-        if (!config) {
-          return undefined;
-        }
-        assert(record.trades);
-        const initialPrice = record.trades[0];
-        assert(initialPrice);
-        const initialPriceNumerator = run2places(record.trades[0].central);
-
-        /**
-         * @param {Rational} r
-         * @param {Brand} b
-         */
-        const toRatio = ([n, d], b) => makeRatio(n, b, d);
-        const rates = {
-          initialPrice: makeRatio(
-            initialPriceNumerator,
-            centralBrand,
-            inCollateral(initialPrice.collateral),
-            kits[issuerName].brand,
-          ),
-          initialMargin: toRatio(config.initialMargin, centralBrand),
-          liquidationMargin: toRatio(config.liquidationMargin, centralBrand),
-          interestRate: toRatio(config.interestRate, centralBrand),
-          loanFee: toRatio(config.loanFee, centralBrand),
-        };
+        const { rates, initialValue } = poolRates(
+          issuerName,
+          record,
+          kits,
+          central,
+        );
 
         const collateralPayments = E(vats.mints).mintInitialPayments(
           [issuerName],
-          [inCollateral(config.collateralValue)],
+          [initialValue],
         );
         const secondaryPayment = E.get(collateralPayments)[0];
 
@@ -424,15 +446,15 @@ export const fundAMM = async ({
           );
         }
         fromCentral = makeFakePriceAuthority(
-          centralIssuer,
+          central.issuer,
           issuer,
-          centralBrand,
+          central.brand,
           brand,
           tradesGivenCentral,
         );
       }
 
-      if (!toCentral && centralIssuer !== issuer && tradesGivenCentral) {
+      if (!toCentral && central.issuer !== issuer && tradesGivenCentral) {
         // We have no amm to-central price authority, make one from trades.
         console.log(
           `Making fake price authority for ${issuerName}-${CENTRAL_ISSUER_NAME}`,
@@ -443,9 +465,9 @@ export const fundAMM = async ({
         );
         toCentral = makeFakePriceAuthority(
           issuer,
-          centralIssuer,
+          central.issuer,
           brand,
-          centralBrand,
+          central.brand,
           tradesGivenOther,
         );
       }
@@ -453,8 +475,8 @@ export const fundAMM = async ({
       // Register the price pairs.
       await Promise.all(
         [
-          [fromCentral, centralBrand, brand],
-          [toCentral, brand, centralBrand],
+          [fromCentral, central.brand, brand],
+          [toCentral, brand, central.brand],
         ].map(async ([pa, fromBrand, toBrand]) => {
           const paPresence = await pa;
           if (!paPresence) {
