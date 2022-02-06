@@ -10,8 +10,6 @@ import {
   splitAllCentralPayments,
 } from '../src/demoIssuers.js';
 
-const { quote: q } = assert;
-
 /**
  * @param {bigint} frac
  * @param {number} exp
