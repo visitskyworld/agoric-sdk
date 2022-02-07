@@ -24,12 +24,6 @@ export const CHAIN_BOOTSTRAP_MANIFEST = harden({
       zoe: { vat: 'zoe' },
       feeMintAccess: { vat: 'zoe' },
     },
-    // TODO: re-org loadVat, agoricNames to be
-    // subject to permits such as these:
-    vat: { zoe: true },
-    issuer: { produce: { RUN: { vat: 'zoe' } } },
-    brand: { produce: { RUN: { vat: 'zoe' } } },
-    // TODO: say /show that zoe vat contains zoe, RUN issuer, brand (and mint)
   },
   makeBoard: {
     consume: {
@@ -73,23 +67,43 @@ export const CHAIN_BOOTSTRAP_MANIFEST = harden({
   },
   makeClientBanks: {
     consume: {
-      loadVat: true,
+      bankManager: { vat: 'bank' },
       client: true,
+    },
+    home: { produce: { bank: { vat: 'bank' } } },
+  },
+  mintInitialSupply: {
+    vatParameters: {
+      argv: { bootMsg: true },
+    },
+    consume: {
+      centralSupplyBundle: true,
+      feeMintAccess: true,
+      zoe: true,
+    },
+    produce: {
+      initialSupply: true,
+    },
+  },
+  addBankAssets: {
+    vatParameters: {
+      argv: { bootMsg: true },
+    },
+    consume: {
+      agoricNames: true,
+      nameAdmins: true,
+      initialSupply: true,
       bridgeManager: true,
+      loadVat: true,
+      zoe: true,
     },
     produce: {
       bankManager: { vat: 'bank' },
     },
-    home: { produce: { bank: { vat: 'bank' } } },
-  },
-  makeBLDKit: {
-    consume: {
-      agoricNames: true,
-      bankManager: true,
-      nameAdmins: true,
-    },
-    issuer: { produce: { BLD: true } },
-    brand: { produce: { BLD: true } },
+    // TODO: re-org loadVat, agoricNames to be
+    // subject to permits such as these:
+    issuer: { produce: { BLD: true, RUN: { vat: 'zoe' } } },
+    brand: { produce: { BLD: true, RUN: { vat: 'zoe' } } },
   },
   makeProvisioner: {
     consume: {

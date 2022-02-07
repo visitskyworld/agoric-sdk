@@ -154,36 +154,24 @@ export const makeClientBanks = async ({ consume: { client, bankManager } }) => {
 harden(makeClientBanks);
 
 /**
- * Mint RUN genesis supply. Make BLD issuer kit.
- * Add them to BankManager.
+ * Mint RUN genesis supply.
  *
  * @param { BootstrapPowers & {
  *   vatParameters: { argv: { bootMsg?: typeof bootMsgEx }},
- *   consume: { loadVat: ERef<VatLoader<BankVat>> },
  * }} powers
  */
-export const startCoreAssets = async ({
+export const mintInitialSupply = async ({
   vatParameters: {
     argv: { bootMsg },
   },
-  consume: {
-    agoricNames,
-    nameAdmins,
-    bridgeManager,
-    centralSupplyBundle: bundleP,
-    feeMintAccess: feeMintAccessP,
-    loadVat,
-    zoe,
-  },
-  produce: { initialSupply, bankManager },
+  consume: { centralSupplyBundle: bundleP, feeMintAccess: feeMintAccessP, zoe },
+  produce: { initialSupply },
 }) => {
   const [centralSupplyBundle, feeMintAccess, runIssuer] = await Promise.all([
     bundleP,
     feeMintAccessP,
     E(zoe).getFeeIssuer(),
   ]);
-  const runBrand = await E(runIssuer).getBrand();
-  const runKit = { issuer: runIssuer, brand: runBrand };
 
   const { supplyCoins = [] } = bootMsg || {};
   const centralBootstrapSupply = supplyCoins.find(
@@ -201,6 +189,33 @@ export const startCoreAssets = async ({
   const payment = await E(E.get(start).creatorFacet).getBootstrapPayment();
   // TODO: is it OK for creatorFacet, instance, installation to be dropped?
   initialSupply.resolve(payment);
+};
+harden(mintInitialSupply);
+
+/**
+ * Add RUN (with initialSupply payment), BLD (with mint) to BankManager.
+ *
+ * @param { BootstrapPowers & {
+ *   consume: { loadVat: ERef<VatLoader<BankVat>> },
+ * }} powers
+ */
+export const addBankAssets = async ({
+  consume: {
+    agoricNames,
+    nameAdmins,
+    initialSupply,
+    bridgeManager,
+    loadVat,
+    zoe,
+  },
+  produce: { bankManager },
+}) => {
+  const runIssuer = await E(zoe).getFeeIssuer();
+  const [runBrand, payment] = await Promise.all([
+    E(runIssuer).getBrand(),
+    initialSupply,
+  ]);
+  const runKit = { issuer: runIssuer, brand: runBrand, payment };
 
   const bldKit = makeIssuerKit(
     Tokens.BLD.name,
@@ -232,8 +247,8 @@ export const startCoreAssets = async ({
       Tokens.RUN.denom,
       Tokens.RUN.name,
       Tokens.RUN.proposedName,
-      runKit, // without mint
+      runKit, // without mint, with payment
     ),
   ]);
 };
-harden(startCoreAssets);
+harden(addBankAssets);
