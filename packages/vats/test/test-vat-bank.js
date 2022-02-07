@@ -4,7 +4,18 @@ import { test } from '@agoric/swingset-vat/tools/prepare-test-env-ava.js';
 
 import { E, Far } from '@endo/far';
 import { AmountMath, makeIssuerKit, AssetKind } from '@agoric/ertp';
+import { economyBundles } from '@agoric/run-protocol/src/importedBundles.js';
+import { makeZoeKit } from '@agoric/zoe';
+import { makeFakeVatAdmin } from '@agoric/zoe/tools/fakeVatAdmin.js';
+import { observeIteration } from '@agoric/notifier';
+import { makePromiseKit } from '@agoric/promise-kit';
 import { buildRootObject } from '../src/vat-bank.js';
+import { startCoreAssets } from '../src/core/basic-behaviors.js';
+import {
+  collectNameAdmins,
+  makeNameAdmins,
+  makePromiseSpace,
+} from '../src/core/utils.js';
 
 test('communication', async t => {
   t.plan(38);
@@ -183,4 +194,89 @@ test('communication', async t => {
     E(bankMgr).getFeeCollectorDepositFacet('ufee', feeKit),
   ).receive(feePayment);
   t.assert(AmountMath.isEqual(feeReceived, feeAmount));
+});
+
+test('startCoreAssets starts RUN, BLD', async t => {
+  // Supply bootstrap prerequisites.
+  const space = /** @type { any } */ (makePromiseSpace());
+  const { produce, consume } =
+    /** @type { BootstrapPowers & { consume: { loadVat: VatLoader<any> }}} */ (
+      space
+    );
+  const { agoricNames, agoricNamesAdmin, nameAdmins } = makeNameAdmins();
+  produce.agoricNames.resolve(agoricNames);
+  produce.agoricNamesAdmin.resolve(agoricNamesAdmin);
+  produce.nameAdmins.resolve(nameAdmins);
+  produce.centralSupplyBundle.resolve(economyBundles.centralSupply);
+
+  const loadVat = async name => {
+    assert.equal(name, 'bank');
+    return E(buildRootObject)();
+  };
+  produce.loadVat.resolve(loadVat);
+  produce.bridgeManager.resolve(undefined);
+
+  const { zoeService, feeMintAccess } = makeZoeKit(
+    makeFakeVatAdmin(() => {}).admin,
+  );
+  produce.zoe.resolve(zoeService);
+  produce.feeMintAccess.resolve(feeMintAccess);
+  const runIssuer = await E(zoeService).getFeeIssuer();
+  const runBrand = await E(runIssuer).getBrand();
+
+  // Genesis RUN supply: 50
+  const bootMsg = {
+    type: 'INIT@@',
+    chainID: 'ag',
+    storagePort: 1,
+    supplyCoins: [{ amount: '50000000', denom: 'urun' }],
+    vbankPort: 2,
+    vibcPort: 3,
+  };
+
+  // Now run the function under test.
+  await startCoreAssets({
+    vatParameters: {
+      argv: {
+        bootMsg,
+        ROLE: 'x',
+        hardcodedClientAddresses: [],
+        noFakeCurrencies: true,
+      },
+    },
+    consume,
+    produce,
+    devices: /** @type { any } */ ({}),
+    vats: /** @type { any } */ ({}),
+    vatPowers: /** @type { any } */ ({}),
+    runBehaviors: /** @type { any } */ ({}),
+  });
+
+  // check results: initialSupply
+  const pmt = await consume.initialSupply;
+  const amt = await E(runIssuer).getAmountOf(pmt);
+  t.deepEqual(
+    amt,
+    { brand: runBrand, value: 50_000_000n },
+    'initialSupply of 50 RUN',
+  );
+
+  // check results: bankManager assets
+  const assets = E(consume.bankManager).getAssetSubscription();
+  const expected = ['BLD', 'RUN'];
+  const seen = new Set();
+  const done = makePromiseKit();
+  observeIteration(assets, {
+    updateState: asset => {
+      seen.add(asset.issuerName);
+      if (asset.issuerName === 'RUN') {
+        t.is(asset.issuer, runIssuer);
+      }
+      if (seen.size === expected.length) {
+        done.resolve(seen);
+      }
+    },
+  });
+  await done.promise;
+  t.deepEqual([...seen].sort(), expected);
 });

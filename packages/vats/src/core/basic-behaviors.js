@@ -1,21 +1,25 @@
 // @ts-check
 import { E, Far } from '@endo/far';
-import { makeIssuerKit } from '@agoric/ertp';
+import { AssetKind, makeIssuerKit } from '@agoric/ertp';
 
+import { Nat } from '@agoric/nat';
 import { makeNameHubKit } from '../nameHub.js';
 
 import { feeIssuerConfig, collectNameAdmins, makeNameAdmins } from './utils.js';
 
-const Tokens = {
+const Tokens = harden({
   RUN: {
+    name: 'RUN',
     denom: 'urun',
-    suggestedName: 'Agoric RUN currency',
+    proposedName: 'Agoric RUN currency',
   },
   BLD: {
+    name: 'BLD',
     denom: 'ubld',
-    suggestedName: 'Agoric staking token',
+    proposedName: 'Agoric staking token',
+    displayInfo: { decimalPlaces: 6 },
   },
-};
+});
 
 /**
  * In golang/cosmos/app/app.go, we define
@@ -73,7 +77,7 @@ harden(makeVatsFromBundles);
  * @typedef {ERef<ReturnType<import('../vat-zoe.js').buildRootObject>>} ZoeVat
  */
 export const buildZoe = async ({
-  consume: { agoricNames, vatAdminSvc, loadVat, client, nameAdmins },
+  consume: { vatAdminSvc, loadVat, client },
   produce: { zoe, feeMintAccess },
 }) => {
   const { zoeService, feeMintAccess: fma } = await E(
@@ -82,18 +86,8 @@ export const buildZoe = async ({
 
   zoe.resolve(zoeService);
 
-  const runIssuer = await E(zoeService).getFeeIssuer();
-  const runBrand = await E(runIssuer).getBrand();
-  const [issuerAdmin, brandAdmin] = await collectNameAdmins(
-    ['issuer', 'brand'],
-    agoricNames,
-    nameAdmins,
-  );
-
   feeMintAccess.resolve(fma);
   return Promise.all([
-    E(issuerAdmin).update('RUN', runIssuer),
-    E(brandAdmin).update('RUN', runBrand),
     E(client).assignBundle([_addr => ({ zoe: zoeService })]),
   ]);
 };
@@ -126,9 +120,9 @@ export const makeAddressNameHubs = async ({ consume: { client }, produce }) => {
 
   const { agoricNames, agoricNamesAdmin, nameAdmins } = makeNameAdmins();
 
-  produce.nameAdmins.resolve(nameAdmins);
   produce.agoricNames.resolve(agoricNames);
   produce.agoricNamesAdmin.resolve(agoricNamesAdmin);
+  produce.nameAdmins.resolve(nameAdmins);
   produce.namesByAddress.resolve(namesByAddress);
   produce.namesByAddressAdmin.resolve(namesByAddressAdmin);
 
@@ -151,55 +145,53 @@ export const makeAddressNameHubs = async ({ consume: { client }, produce }) => {
 };
 harden(makeAddressNameHubs);
 
-/**
- * @param {BootstrapPowers & {
- *   consume: { loadVat: ERef<VatLoader<BankVat>> },
- * }} powers
- * @typedef {ERef<ReturnType<import('../vat-bank.js').buildRootObject>>} BankVat
- */
-export const makeClientBanks = async ({
-  consume: { loadVat, client, bridgeManager },
-  produce: { bankManager },
-}) => {
-  const mgr = E(E(loadVat)('bank')).makeBankManager(bridgeManager);
-  bankManager.resolve(mgr);
+/** @param {BootstrapPowers} powers */
+export const makeClientBanks = async ({ consume: { client, bankManager } }) => {
   return E(client).assignBundle([
-    address => ({ bank: E(mgr).getBankForAddress(address) }),
+    address => ({ bank: E(bankManager).getBankForAddress(address) }),
   ]);
 };
 harden(makeClientBanks);
 
 /**
+ * Mint RUN genesis supply. Make BLD issuer kit.
+ * Add them to BankManager.
+ *
  * @param { BootstrapPowers & {
- *   vatParameters: { argv: { bootMsg?: typeof bootMsgEx }}
+ *   vatParameters: { argv: { bootMsg?: typeof bootMsgEx }},
+ *   consume: { loadVat: ERef<VatLoader<BankVat>> },
  * }} powers
  */
-export const mintCentralSupply = async ({
+export const startCoreAssets = async ({
   vatParameters: {
     argv: { bootMsg },
   },
   consume: {
     agoricNames,
-    bankManager,
-    centralSupplyBundle,
+    nameAdmins,
+    bridgeManager,
+    centralSupplyBundle: bundleP,
     feeMintAccess: feeMintAccessP,
+    loadVat,
     zoe,
   },
-  produce: { initialSupply },
+  produce: { initialSupply, bankManager },
 }) => {
+  const [centralSupplyBundle, feeMintAccess, runIssuer] = await Promise.all([
+    bundleP,
+    feeMintAccessP,
+    E(zoe).getFeeIssuer(),
+  ]);
+  const runBrand = await E(runIssuer).getBrand();
+  const runKit = { issuer: runIssuer, brand: runBrand };
+
   const { supplyCoins = [] } = bootMsg || {};
-
   const centralBootstrapSupply = supplyCoins.find(
-    ({ denom }) => denom === CENTRAL_DENOM_NAME,
+    ({ denom }) => denom === Tokens.RUN.denom,
   ) || { amount: '0' };
-
   const bootstrapPaymentValue = Nat(BigInt(centralBootstrapSupply.amount));
 
   const installation = E(zoe).install(centralSupplyBundle);
-  const [feeMintAccess, runIssuer] = await Promise.all([
-    feeMintAccessP,
-    E(agoricNames).lookup('issuer', 'RUN'),
-  ]);
   const start = E(zoe).startInstance(
     installation,
     { Central: runIssuer },
@@ -210,67 +202,38 @@ export const mintCentralSupply = async ({
   // TODO: is it OK for creatorFacet, instance, installation to be dropped?
   initialSupply.resolve(payment);
 
-  const [issuerName, { bankDenom, bankPurse, issuerArgs }] = BLD_ISSUER_ENTRY;
-  assert(issuerArgs);
-  const kit = makeIssuerKit(issuerName, ...issuerArgs); // TODO: should this live in another vat???
-  await E(bankManager).addAsset(bankDenom, issuerName, bankPurse, kit);
-  const { brand, issuer } = kit;
+  const bldKit = makeIssuerKit(
+    Tokens.BLD.name,
+    AssetKind.NAT,
+    Tokens.BLD.displayInfo,
+  ); // TODO: should this live in another vat???
+
+  const mgr = E(E(loadVat)('bank')).makeBankManager(bridgeManager);
+  bankManager.resolve(mgr);
+
   const [issuerAdmin, brandAdmin] = await collectNameAdmins(
     ['issuer', 'brand'],
     agoricNames,
     nameAdmins,
   );
+
   return Promise.all([
-    E(issuerAdmin).update(issuerName, issuer),
-    E(brandAdmin).update(issuerName, brand),
+    E(issuerAdmin).update(Tokens.BLD.name, bldKit.issuer),
+    E(brandAdmin).update(Tokens.BLD.name, bldKit.brand),
+    E(issuerAdmin).update(Tokens.RUN.name, runKit.issuer),
+    E(brandAdmin).update(Tokens.RUN.name, runKit.brand),
+    E(mgr).addAsset(
+      Tokens.BLD.denom,
+      Tokens.BLD.name,
+      Tokens.BLD.proposedName,
+      bldKit, // with mint
+    ),
+    E(mgr).addAsset(
+      Tokens.RUN.denom,
+      Tokens.RUN.name,
+      Tokens.RUN.proposedName,
+      runKit, // without mint
+    ),
   ]);
 };
-
-/**
- * Note that we can still add these fake currencies to be traded on the AMM.
- * Just don't add a defaultPurses entry if you don't want them to be given out
- * on bootstrap.  They might still be tradable on the AMM.
- *
- * @param {boolean} noObviouslyFakeCurrencies
- * @returns {Array<[string, IssuerInitializationRecord]>}
- */
-
-/** @param { BootstrapPowers } powers */
-export const addBankAssets = async ({ consume: { bankManager } }) => {
-  // Add bank assets.
-  await Promise.all(
-    issuerEntries.map(async entry => {
-      const [issuerName, record] = entry;
-      const { bankDenom, bankPurse, brand, issuer, bankPayment } = record;
-      if (!bankDenom || !bankPurse) {
-        return undefined;
-      }
-
-      assert(brand);
-      assert(issuer);
-
-      const makeMintKit = async () => {
-        // We need to obtain the mint in order to mint the tokens when they
-        // come from the bank.
-        // FIXME: Be more careful with the mint.
-        const mint = await E(vats.mints).getMint(issuerName);
-        return harden({ brand, issuer, mint });
-      };
-
-      let kitP;
-      if (bankBridgeManager && bankPayment) {
-        // The bank needs the payment to back its existing bridge peg.
-        kitP = harden({ brand, issuer, payment: bankPayment });
-      } else if (unusedBankPayments.has(brand)) {
-        // No need to back the currency.
-        kitP = harden({ brand, issuer });
-      } else {
-        kitP = makeMintKit();
-      }
-
-      const kit = await kitP;
-      return E(bankManager).addAsset(bankDenom, issuerName, bankPurse, kit);
-    }),
-  );
-};
-harden(addBankAssets);
+harden(startCoreAssets);
