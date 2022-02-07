@@ -151,12 +151,13 @@ export const SIM_CHAIN_BOOTSTRAP_MANIFEST = harden({
   },
   connectFaucet: {
     consume: { zoe: true, client: true },
+    home: { produce: { faucet: true } },
   },
   grantRunBehaviors: {
     runBehaviors: true,
     consume: { client: true },
+    home: { produce: { runBehaviors: true, governanceActions: true } },
   },
-  home: { runBehaviors: true, governanceActions: true },
 });
 
 export const GOVERNANCE_ACTIONS_MANIFEST = harden({
@@ -177,8 +178,14 @@ export const GOVERNANCE_ACTIONS_MANIFEST = harden({
       governanceBundles: true,
     },
     produce: { economicCommitteeCreatorFacet: { vat: 'economicCommittee' } },
+    installation: {
+      produce: {
+        contractGovernor: { vat: 'zoe' },
+        binaryVoteCounter: { vat: 'zoe' },
+      },
+    },
     instance: {
-      produce: { economicCommitteeCreatorFacet: { vat: 'zoe' } },
+      produce: { economicCommittee: { vat: 'zoe' } },
     },
   },
   setupAmm: {
@@ -187,19 +194,20 @@ export const GOVERNANCE_ACTIONS_MANIFEST = harden({
       agoricNames: true,
       nameAdmins: true,
       zoe: true,
-      economicCommitteeCreatorFacet: true,
+      economicCommitteeCreatorFacet: { vat: 'economicCommittee' },
       ammBundle: true,
     },
     produce: {
       ammCreatorFacet: { vat: 'amm' },
       ammGovernorCreatorFacet: { vat: 'amm' },
     },
+    issuer: { consume: { RUN: { vat: 'zoe' } } },
     installation: {
       consume: { contractGovernor: { vat: 'zoe' } },
     },
     instance: {
-      produce: { amm: { vat: 'zoe' } },
       consume: { economicCommittee: { vat: 'zoe' } },
+      produce: { amm: { vat: 'zoe' } },
     },
   },
   startPriceAuthority: {
@@ -218,14 +226,17 @@ export const GOVERNANCE_ACTIONS_MANIFEST = harden({
       chainTimerService: true,
       zoe: true,
       priceAuthority: true,
-      economicCommitteeCreatorFacet: true,
+      economicCommitteeCreatorFacet: { vat: 'economicCommittee' },
     },
     produce: {
       vaultFactoryCreator: { vat: 'VaultFactory' },
       vaultFactoryGovernorCreator: { vat: 'VaultFactory' },
       vaultFactoryVoteCreator: { vat: 'VaultFactory' },
     },
+    brand: { consume: { RUN: { vat: 'zoe' } } },
+    installation: { consume: { contractGovernor: { vat: 'zoe' } } },
     instance: {
+      consume: { amm: { vat: 'zoe' }, economicCommittee: { vat: 'zoe' } },
       produce: { VaultFactory: { vat: 'zoe' } },
     },
   },
