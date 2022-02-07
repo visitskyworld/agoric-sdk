@@ -13,6 +13,8 @@ const styles = {
   space: 'shape=house, style=filled, fillcolor=khaki',
   issuer: 'shape=trapezium, style=filled, fillcolor=chocolate',
   brand: 'shape=Mcircle, style=filled, fillcolor=chocolate2',
+  installation: 'shape=cylinder',
+  instance: 'shape=component',
   home: 'shape=folder',
 };
 
