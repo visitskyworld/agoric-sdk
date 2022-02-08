@@ -73,7 +73,8 @@ function* fmtGraph(nodes, neighbors) {
  *   runBehaviors: Function,
  * } & PowerSpace } Permit
  * @typedef {{produce?: Record<string, Status>, consume?: Record<string, Status>}} PowerSpace
- * @typedef { boolean | { vat: string }} Status
+ * @typedef { boolean | VatName } Status
+ * @typedef { string } VatName
  */
 const manifest2graph = manifest => {
   /** @type { Set<GraphNode> } */
@@ -116,7 +117,7 @@ const manifest2graph = manifest => {
         if (status) {
           let cluster = {};
           if (typeof status !== 'boolean') {
-            cluster = { cluster: status.vat };
+            cluster = { cluster: status };
           }
 
           nodes.add({
