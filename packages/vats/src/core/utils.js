@@ -3,6 +3,7 @@ import { E } from '@endo/far';
 import { AssetKind } from '@agoric/ertp';
 import { makePromiseKit } from '@agoric/promise-kit';
 import { makeStore } from '@agoric/store';
+import { Collect } from '@agoric/run-protocol/src/collect';
 import { makeNameHubKit } from '../nameHub.js';
 
 const { entries, fromEntries, keys } = Object;
@@ -62,12 +63,14 @@ export const addRemote = async (addr, { vats: { comms, vattp } }) => {
 harden(addRemote);
 
 /**
- * @param {Array<(...args) => Record<string, unknown>>} builders
+ * @param {Array<(...args) => ERef<Record<string, unknown>>>} builders
  * @param  {...unknown} args
- * @returns {Record<string, unknown>}
+ * @returns {Promise<Record<string, unknown>>}
  */
 export const mixProperties = (builders, ...args) =>
-  fromEntries(builders.map(fn => entries(fn(...args))).flat());
+  Collect.allValues(
+    fromEntries(builders.map(fn => entries(fn(...args))).flat()),
+  );
 
 export const makeNameAdmins = () => {
   const { nameHub: agoricNames, nameAdmin: agoricNamesAdmin } =
