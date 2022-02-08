@@ -107,9 +107,12 @@ export const makeClientManager = async ({
       /** @type {Record<string, unknown>} */
       let clientHome = {};
 
-      const makeUpdatedConfiguration = (newPropertyMakers = []) => {
+      const makeUpdatedConfiguration = async (newPropertyMakers = []) => {
         // Specialize the property makers with the client address.
-        const newProperties = mixProperties(newPropertyMakers, clientAddress);
+        const newProperties = await mixProperties(
+          newPropertyMakers,
+          clientAddress,
+        );
         clientHome = { ...clientHome, ...newProperties };
         const config = harden({ clientAddress, clientHome });
         /** @type {typeof config} */
@@ -118,9 +121,8 @@ export const makeClientManager = async ({
       };
 
       // Publish new configurations.
-      const { notifier, updater } = makeNotifierKit(
-        makeUpdatedConfiguration(cachedPropertyMakers),
-      );
+      const newConfig = await makeUpdatedConfiguration(cachedPropertyMakers);
+      const { notifier, updater } = makeNotifierKit(newConfig);
 
       /** @type {ClientFacet} */
       const clientFacet = Far('chainProvisioner', {
@@ -130,7 +132,9 @@ export const makeClientManager = async ({
 
       observeIteration(subscription, {
         updateState(newPropertyMakers) {
-          updater.updateState(makeUpdatedConfiguration(newPropertyMakers));
+          makeUpdatedConfiguration(newPropertyMakers)
+            .then(x => updater.updateState(x))
+            .catch(reason => console.error(reason)); // TODO: catch and log OK?
         },
       });
 
