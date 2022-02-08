@@ -75,7 +75,16 @@ const buildRootObject = (vatPowers, vatParameters) => {
         return Promise.all(
           entries(manifest).map(([name, permit]) =>
             Promise.resolve().then(() => {
-              const endowments = extract(permit, powers);
+              const {
+                // TODO: use these for more than just visualization.
+                home: _h,
+                installation: _i1,
+                instance: _i2,
+                issuer: _i3,
+                brand: _b,
+                ...effectivePermit
+              } = permit;
+              const endowments = extract(effectivePermit, powers);
               const config = vatParameters[name];
               console.info(`bootstrap: ${name}(${q(permit)})`);
               return bootBehaviors[name](endowments, config);
