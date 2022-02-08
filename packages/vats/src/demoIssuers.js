@@ -260,6 +260,37 @@ export const poolRates = (issuerName, record, kits, central) => {
 };
 
 /**
+ * @param {Issuer} issuer
+ * @param {bigint} value
+ * @param {{
+ *   centralSupplyBundle: ERef<SourceBundle>,
+ *   feeMintAccess: ERef<FeeMintAccess>,
+ *   zoe: ERef<ZoeService>,
+ * }} powers
+ * @returns { Promise<Payment> }
+ */
+const printMoney = async (
+  issuer,
+  value,
+  { centralSupplyBundle: centralP, feeMintAccess: feeMintAccessP, zoe },
+) => {
+  /** @type {[SourceBundle, FeeMintAccess]} */
+  const [centralSupplyBundle, feeMintAccess] = await Promise.all([
+    centralP,
+    feeMintAccessP,
+  ]);
+
+  const { creatorFacet: ammSupplier } = await E(zoe).startInstance(
+    E(zoe).install(centralSupplyBundle),
+    { Central: issuer },
+    { bootstrapPaymentValue: value },
+    { feeMintAccess },
+  );
+  // TODO: stop the contract vat?
+  return E(ammSupplier).getBootstrapPayment();
+};
+
+/**
  * @param { EconomyBootstrapPowers & {
  *   consume: { loadVat: VatLoader<MintsVat> }
  * }} powers
@@ -267,18 +298,17 @@ export const poolRates = (issuerName, record, kits, central) => {
 export const fundAMM = async ({
   consume: {
     agoricNames,
-    centralSupplyBundle: centralP,
+    centralSupplyBundle,
     chainTimerService,
-    feeMintAccess: feeMintAccessP,
+    feeMintAccess,
     loadVat,
     priceAuthorityAdmin,
     vaultFactoryCreator,
     zoe,
   },
 }) => {
-  const { ammTotal: ammDepositValue, balances } = ammPoolRunDeposits(
-    AMMDemoState,
-  );
+  const { ammTotal: ammDepositValue, balances } =
+    ammPoolRunDeposits(AMMDemoState);
 
   const vats = {
     mints: E(loadVat)('mints'),
@@ -316,28 +346,23 @@ export const fundAMM = async ({
   );
   const central = kits[CENTRAL_ISSUER_NAME];
 
-  /** @type {[SourceBundle, FeeMintAccess, Instance, TimerService]} */
-  const [
-    centralSupplyBundle,
-    feeMintAccess,
-    ammInstance,
-    timer,
-  ] = await Promise.all([
-    centralP,
-    feeMintAccessP,
-    E(agoricNames).lookup('instance', 'amm'),
+  /** @type {ERef<Instance>} */
+  const ammInstance = E(agoricNames).lookup('instance', 'amm');
+  /** @type {[XYKAMMPublicFacet, TimerService]} */
+  const [ammPublicFacet, timer] = await Promise.all([
+    E(zoe).getPublicFacet(ammInstance),
     chainTimerService,
   ]);
-  const ammPublicFacet = await E(zoe).getPublicFacet(ammInstance);
 
-  const { creatorFacet: ammSupplier } = await E(zoe).startInstance(
-    E(zoe).install(centralSupplyBundle),
-    { Central: central.issuer },
-    { bootstrapPaymentValue: ammDepositValue },
-    { feeMintAccess },
+  const ammBootstrapPayment = await printMoney(
+    central.issuer,
+    ammDepositValue,
+    {
+      centralSupplyBundle,
+      feeMintAccess,
+      zoe,
+    },
   );
-  /** @type { Payment } */
-  const ammBootstrapPayment = await E(ammSupplier).getBootstrapPayment();
 
   async function addAllCollateral() {
     const issuerMap = await splitAllCentralPayments(
