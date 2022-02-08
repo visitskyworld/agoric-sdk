@@ -266,4 +266,20 @@ export const GOVERNANCE_ACTIONS_MANIFEST = harden({
   configureVaultFactoryUI: {
     consume: { agoricNames: true, nameAdmins: true, board: true, zoe: true },
   },
+  startRewardDistributor: {
+    consume: {
+      agoricNames: true,
+      chainTimerService: true,
+      bankManager: true,
+      loadVat: true,
+      vaultFactoryCreator: true,
+      ammCreatorFacet: true,
+      zoe: true,
+    },
+    produce: {
+      distributor: 'distributeFees',
+    },
+    issuer: { consume: { RUN: 'zoe' } },
+    brand: { consume: { RUN: 'zoe' } },
+  },
 });
