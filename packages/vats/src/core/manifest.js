@@ -133,6 +133,16 @@ export const CHAIN_BOOTSTRAP_MANIFEST = harden({
       clientCreator: true,
     },
   },
+  registerNetworkProtocols: {
+    consume: {
+      agoricNames: true,
+      nameAdmins: true,
+      loadVat: true,
+      bridgeManager: true,
+      zoe: true,
+      provisioning: true,
+    },
+  },
   connectChainFaucet: {
     consume: {
       client: true,
