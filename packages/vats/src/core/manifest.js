@@ -117,7 +117,6 @@ export const CHAIN_BOOTSTRAP_MANIFEST = harden({
       comms: true,
       vattp: true,
     },
-    vat: { provisioning: true },
   },
   bridgeProvisioner: {
     consume: {
