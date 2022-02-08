@@ -183,7 +183,6 @@ harden(connectChainFaucet);
 export const shareEconomyBundles = async ({
   produce: {
     ammBundle: ammP,
-    getRUNBundle,
     vaultBundles,
     governanceBundles: govP,
     pegasusBundle: pegasusP,
@@ -196,7 +195,6 @@ export const shareEconomyBundles = async ({
     VaultFactory: economyBundles.VaultFactory,
     liquidate: economyBundles.liquidate,
   });
-  getRUNBundle.resolve(economyBundles.getRUN);
   pegasusP.resolve(pegasusBundle);
   centralP.resolve(economyBundles.centralSupply);
 };
