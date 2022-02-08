@@ -170,6 +170,18 @@ export const SIM_CHAIN_BOOTSTRAP_MANIFEST = harden({
     consume: { client: true },
     home: { produce: { runBehaviors: true, governanceActions: true } },
   },
+  fundAMM: {
+    consume: {
+      agoricNames: true,
+      centralSupplyBundle: true,
+      chainTimerService: true,
+      feeMintAccess: true,
+      loadVat: true,
+      priceAuthorityAdmin: true,
+      vaultFactoryCreator: true,
+      zoe: true,
+    },
+  },
 });
 
 export const GOVERNANCE_ACTIONS_MANIFEST = harden({
