@@ -24,6 +24,8 @@ import { collectNameAdmins, mixProperties } from './utils.js';
 
 const { details: X } = assert;
 
+const NUM_IBC_PORTS = 3;
+
 /**
  * @param {BootstrapPowers & {
  *   consume: { loadVat: ERef<VatLoader<ProvisioningVat>> }
@@ -219,6 +221,7 @@ harden(shareEconomyBundles);
 export const registerNetworkProtocols = async ({
   consume: {
     agoricNames,
+    client,
     nameAdmins,
     loadVat,
     bridgeManager: bridgeManagerP,
@@ -281,6 +284,20 @@ export const registerNetworkProtocols = async ({
       },
     }),
   );
+
+  E(client).assignBundle([
+    _addr => {
+      // Bind to some fresh ports (unspecified name) on the IBC implementation
+      // and provide them for the user to have.
+      const ibcportP = [];
+      for (let i = 0; i < NUM_IBC_PORTS; i += 1) {
+        const port = E(vats.network).bind('/ibc-port/');
+        ibcportP.push(port);
+      }
+      const ibcport = await Promise.all(ibcportP);
+      return { ibcport };
+    },
+  ]);
 
   // In the promise space for a solo, this lookup doesn't resolve,
   // so we never bother with the rest.
