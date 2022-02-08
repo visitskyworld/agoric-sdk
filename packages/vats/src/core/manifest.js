@@ -2,13 +2,13 @@
 export const CHAIN_BOOTSTRAP_MANIFEST = harden({
   makeVatsFromBundles: {
     vats: {
-      vatAdmin: true,
+      vatAdmin: 'vatAdmin',
     },
     devices: {
       vatAdmin: true,
     },
     produce: {
-      vatAdminSvc: true,
+      vatAdminSvc: 'vatAdmin',
       loadVat: true,
     },
   },
