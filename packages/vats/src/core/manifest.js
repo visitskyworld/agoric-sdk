@@ -72,6 +72,9 @@ export const CHAIN_BOOTSTRAP_MANIFEST = harden({
     },
     home: { produce: { bank: 'bank' } },
   },
+  shareCentralSupplyBundle: {
+    produce: { centralSupplyBundle: true },
+  },
   mintInitialSupply: {
     vatParameters: {
       argv: { bootMsg: true },

@@ -180,13 +180,19 @@ export const connectChainFaucet = async ({ consume: { client } }) => {
 harden(connectChainFaucet);
 
 /** @param {BootstrapPowers} powers */
+export const shareCentralSupplyBundle = async ({
+  produce: { centralSupplyBundle: centralP },
+}) => {
+  centralP.resolve(economyBundles.centralSupply);
+};
+
+/** @param {BootstrapPowers} powers */
 export const shareEconomyBundles = async ({
   produce: {
     ammBundle: ammP,
     vaultBundles,
     governanceBundles: govP,
     pegasusBundle: pegasusP,
-    centralSupplyBundle: centralP,
   },
 }) => {
   govP.resolve(governanceBundles);
@@ -196,7 +202,6 @@ export const shareEconomyBundles = async ({
     liquidate: economyBundles.liquidate,
   });
   pegasusP.resolve(pegasusBundle);
-  centralP.resolve(economyBundles.centralSupply);
 };
 harden(shareEconomyBundles);
 
