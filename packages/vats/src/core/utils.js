@@ -179,15 +179,19 @@ export const makePromiseSpace = () => {
 harden(makePromiseSpace);
 
 /**
- * @param {unknown} template
+ * @param {unknown} template true or vat name string or recursive object
  * @param {unknown} specimen
  */
 export const extract = (template, specimen) => {
-  if (template === true) {
+  if (template === true || typeof template === 'string') {
     return specimen;
   } else if (typeof template === 'object' && template !== null) {
     if (typeof specimen !== 'object' || specimen === null) {
-      assert.fail(X`object template requires object specimen, not ${specimen}`);
+      assert.fail(
+        X`object template ${q(template)} requires object specimen, not ${q(
+          specimen,
+        )}`,
+      );
     }
     const target = harden(
       fromEntries(
