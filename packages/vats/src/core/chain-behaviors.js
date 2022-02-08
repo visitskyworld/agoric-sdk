@@ -290,7 +290,7 @@ export const registerNetworkProtocols = async ({
   );
 
   E(client).assignBundle([
-    _addr => {
+    async _addr => {
       // Bind to some fresh ports (unspecified name) on the IBC implementation
       // and provide them for the user to have.
       const ibcportP = [];
