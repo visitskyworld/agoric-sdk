@@ -737,12 +737,35 @@ export default function buildKernel(
     // eslint-disable-next-line no-use-before-define
     return vatWarehouse
       .createDynamicVat(vatID)
+    // if createDynamicVat fails, go directly to makeErrorResponse
+      .then(_ => processStartVat({ vatID }))  // ISH // TODO(4381) add vatParameters here
+    // if processStartVat fails, do we need to clean up the vat first??
       .then(makeSuccessResponse, makeErrorResponse)
       .then(sendResponse)
       .catch(err => console.error(`error in vat creation`, err))
       .then(() => policyInput);
   }
 
+  async function processStartVat(message) {
+    // ISH
+    /** @type { PolicyInput } */
+    const policyInput = harden(['create-vat', {}]);
+    const { type, vatID } = message;
+    // console.log(`-- processBuildRootObject(${vatID})`);
+    insistVatID(vatID);
+    // eslint-disable-next-line no-use-before-define
+    if (!vatWarehouse.lookup(vatID)) {
+      return harden(policyInput);
+    }
+    const kd = harden(['start-vat']); // TODO(4381) add vatParameters here
+    // eslint-disable-next-line no-use-before-define
+    const vd = vatWarehouse.kernelDeliveryToVatDelivery(vatID, kd);
+    // TODO: can we provide a computron count to the run policy?
+    policyInput = await deliverAndLogToVat(vatID, kd, vd, false);
+    return harden(policyInput);
+  }
+
+  
   function legibilizeMessage(message) {
     if (message.type === 'send') {
       const msg = message.msg;
@@ -797,7 +820,12 @@ export default function buildKernel(
         kernelKeeper.decrementRefCount(message.kpid, `deq|notify`);
         policyInput = await processNotify(message);
       } else if (message.type === 'create-vat') {
+        // creating a new dynamic vat will immediately do start-vat
         policyInput = await processCreateVat(message);
+      } else if (message.type === 'start-vat') {
+        // TODO: initializeSwingset should push start-vat for all static vats
+        // onto run-queue, ahead of bootstrap()
+        policyInput = await processStartVat(message);
       } else if (message.type === 'bringOutYourDead') {
         policyInput = await processBringOutYourDead(message);
       } else if (gcMessages.includes(message.type)) {
