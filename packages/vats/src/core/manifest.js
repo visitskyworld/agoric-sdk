@@ -137,6 +137,7 @@ export const CHAIN_BOOTSTRAP_MANIFEST = harden({
     consume: {
       agoricNames: true,
       nameAdmins: true,
+      client: true,
       loadVat: true,
       bridgeManager: true,
       zoe: true,
