@@ -145,12 +145,13 @@ export const CHAIN_BOOTSTRAP_MANIFEST = harden({
       provisioning: true,
     },
   },
-  connectChainFaucet: {
-    consume: {
-      client: true,
-    },
-    home: { produce: { faucet: true } },
-  },
+  // TODO: resolve conflict with demo connectFaucet
+  // connectChainFaucet: {
+  //   consume: {
+  //     client: true,
+  //   },
+  //   home: { produce: { faucet: true } },
+  // },
 });
 
 export const SIM_CHAIN_BOOTSTRAP_MANIFEST = harden({
