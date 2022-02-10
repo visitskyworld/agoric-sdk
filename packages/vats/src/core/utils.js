@@ -40,6 +40,7 @@ export const shared = harden({
     liquidate: 'liquidate',
     getRUN: 'getRUN',
     getRUNGovernor: 'getRUN governor',
+    pegasus: 'pegasus',
   },
 });
 
