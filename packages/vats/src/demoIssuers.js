@@ -186,6 +186,35 @@ const mintRunPayment = async (
 };
 
 /**
+ * @param {string} name
+ * @param {MintsVat} mints
+ */
+const provideCoin = async (name, mints) => {
+  const get = async () => {
+    const issuer = await E(mints).getIssuer(name);
+    const brand = await E(issuer).getBrand();
+    return { issuer, brand };
+  };
+
+  const make = async () => {
+    const displayInfo = {
+      assetKind: AssetKind.NAT,
+      decimalPlaces: DecimalPlaces[name],
+    };
+    const issuer = await E(mints).makeMintAndIssuer(
+      name,
+      AssetKind.NAT,
+      displayInfo,
+    );
+    const brand = await E(issuer).getBrand();
+    return { issuer, brand };
+  };
+
+  const names = await E(mints).getAllIssuerNames();
+  return names.includes(name) ? get() : make();
+};
+
+/**
  * @param { BootstrapPowers &
  *   { consume: {loadVat: VatLoader<MintsVat>} }
  * } powers
@@ -261,19 +290,14 @@ export const connectFaucet = async ({
               case 'BLD':
                 return bldIssuerKit;
               default: {
-                const displayInfo = { decimalPlaces: DecimalPlaces[name] };
-                const issuer = await E(vats.mints).makeMintAndIssuer(
-                  name,
-                  AssetKind.NAT,
-                  displayInfo,
-                );
-                const brand = await E(issuer).getBrand();
+                const { issuer, brand } = await provideCoin(name, vats.mints);
                 const mint = {
                   mintPayment: async amount => {
                     const minted = await E(vats.mints).mintInitialPayment(
                       name,
                       amount.value,
                     );
+                    assert(minted);
                     return minted;
                   },
                 };
@@ -480,14 +504,7 @@ export const fundAMM = async ({
             return { issuer, brand };
           }
           default: {
-            const issuer = await E(vats.mints).makeMintAndIssuer(
-              issuerName,
-              AssetKind.NAT,
-              {
-                decimalPlaces: DecimalPlaces[issuerName],
-              },
-            );
-            const brand = await E(issuer).getBrand();
+            const { issuer, brand } = await provideCoin(issuerName, vats.mints);
             return { issuer, brand };
           }
         }
