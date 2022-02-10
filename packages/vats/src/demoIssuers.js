@@ -6,7 +6,8 @@ import {
   natSafeMath,
   makeRatio,
 } from '@agoric/zoe/src/contractSupport/index.js';
-import { E } from '@endo/far';
+import { Nat } from '@endo/captp';
+import { E, Far } from '@endo/far';
 
 const { multiply, floorDivide } = natSafeMath;
 const { entries, fromEntries, keys, values } = Object;
@@ -24,17 +25,18 @@ const DecimalPlaces = {
   USDC: 18,
 };
 
-/** @type {Record<string, { petName: string, balance: bigint}>} */
+/** @type {Record<string, { proposedName: string, balance: bigint}>} */
 const FaucetPurseDetail = {
-  [CENTRAL_ISSUER_NAME]: { petName: 'Agoric RUN currency', balance: 53n },
-  LINK: { petName: 'Oracle fee', balance: 51n },
-  USDC: { petName: 'USD Coin', balance: 1_323n },
+  BLD: { proposedName: 'Agoric staking token', balance: 5000n },
+  [CENTRAL_ISSUER_NAME]: { proposedName: 'Agoric RUN currency', balance: 53n },
+  LINK: { proposedName: 'Oracle fee', balance: 51n },
+  USDC: { proposedName: 'USD Coin', balance: 1_323n },
 };
 
 const FakePurseDetail = {
-  ATOM: { petName: 'Cosmos Staking', balance: 68n },
-  moola: { petName: 'Fun budget', balance: 1900n },
-  simolean: { petName: 'Nest egg', balance: 970n },
+  ATOM: { proposedName: 'Cosmos Staking', balance: 68n },
+  moola: { proposedName: 'Fun budget', balance: 1900n },
+  simolean: { proposedName: 'Nest egg', balance: 970n },
 };
 
 const PCT = 100n;
@@ -184,6 +186,158 @@ const mintRunPayment = async (
 };
 
 /**
+ * @param { BootstrapPowers &
+ *   { consume: {loadVat: VatLoader<MintsVat>} }
+ * } powers
+ *
+ * TODO: sync this type with end-user docs?
+ * @typedef {{
+ *   issuer: Issuer,
+ *   issuerPetName: string,
+ *   payment: Payment,
+ *   brand: Brand,
+ *   pursePetName: string,
+ * }} UserPaymentRecord
+ */
+export const connectFaucet = async ({
+  consume: {
+    bankManager,
+    bridgeManager,
+    bldIssuerKit: bldP,
+    centralSupplyBundle,
+    client,
+    feeMintAccess,
+    loadVat,
+    zoe,
+  },
+  produce: { mints },
+}) => {
+  const bankBridgeManager = await bridgeManager;
+
+  const vats = {
+    mints: E(loadVat)('mints'),
+  };
+  mints.resolve(vats.mints);
+
+  const bldIssuerKit = await bldP;
+  const LOTS = 1_000_000_000_000n; // TODO: design this.
+  let faucetRunSupply = await mintRunPayment(LOTS, {
+    centralSupplyBundle,
+    feeMintAccess,
+    zoe,
+  });
+  const runIssuer = await E(zoe).getFeeIssuer();
+  const runBrand = await E(runIssuer).getBrand();
+  const runIssuerKit = {
+    issuer: runIssuer,
+    brand: runBrand,
+    mint: {
+      mintPayment: async amount => {
+        // TODO: what happens if faucetRunSupply doesn't have enough
+        // remaining?
+        let fragment;
+        [fragment, faucetRunSupply] = await E(runIssuer).split(
+          faucetRunSupply,
+          amount,
+        );
+        return fragment;
+      },
+    },
+  };
+
+  /** @type { PropertyMakers } */
+  const addFaucet = [
+    async address => {
+      const bank = await E(bankManager).getBankForAddress(address);
+
+      /** @type {UserPaymentRecord[][]} */
+      const userPaymentRecords = await Promise.all(
+        entries(FaucetPurseDetail).map(async ([issuerName, record]) => {
+          /** @param {string} name */
+          const provideIssuerKit = async name => {
+            switch (name) {
+              case CENTRAL_ISSUER_NAME:
+                return runIssuerKit;
+              case 'BLD':
+                return bldIssuerKit;
+              default: {
+                const displayInfo = { decimalPlaces: DecimalPlaces[name] };
+                const issuer = await E(vats.mints).makeMintAndIssuer(
+                  name,
+                  AssetKind.NAT,
+                  displayInfo,
+                );
+                const brand = await E(issuer).getBrand();
+                const mint = {
+                  mintPayment: async amount => {
+                    const minted = await E(vats.mints).mintInitialPayment(
+                      name,
+                      amount.value,
+                    );
+                    return minted;
+                  },
+                };
+                return { issuer, brand, mint };
+              }
+            }
+          };
+          const { issuer, brand, mint } = await provideIssuerKit(issuerName);
+          const unit = 10n ** BigInt(DecimalPlaces[issuerName]);
+          const amount = AmountMath.make(brand, Nat(record.balance) * unit);
+          const payment = await E(mint).mintPayment(amount);
+
+          /** @type {UserPaymentRecord[]} */
+          let toFaucet = [];
+          // If we don't have an actual bridge to the
+          // underlying chain (from which we'll get the assets),
+          // pay to the bank.
+          if (!bankBridgeManager && issuerName === 'BLD') {
+            // Don't mint or pay if we have a separate bank layer.
+            // We'll obtain the assets from the bank layer.
+            const purse = E(bank).getPurse(brand);
+            await E(purse).deposit(payment);
+          } else {
+            toFaucet = [
+              {
+                issuer,
+                brand,
+                issuerPetName: record.proposedName,
+                payment,
+                pursePetName: record.proposedName,
+              },
+            ];
+          }
+
+          return toFaucet;
+        }),
+      );
+
+      const faucetPaymentInfo = userPaymentRecords.flat();
+
+      const userFeePurse = await E(zoe).makeFeePurse();
+
+      const faucet = Far('faucet', {
+        /**
+         * reap the spoils of our on-chain provisioning.
+         *
+         * @returns {Promise<Array<UserPaymentRecord>>}
+         */
+        async tapFaucet() {
+          return faucetPaymentInfo;
+        },
+        getFeePurse() {
+          return userFeePurse;
+        },
+      });
+
+      return { faucet };
+    },
+  ];
+  return E(client).assignBundle(addFaucet);
+};
+harden(connectFaucet);
+
+/**
  * Calculate how much RUN we need to fund the AMM pools
  *
  * @param {typeof AMMDemoState} issuers
@@ -290,7 +444,7 @@ export const poolRates = (issuerName, record, kits, central) => {
 
 /**
  * @param { EconomyBootstrapPowers & {
- *   consume: { loadVat: VatLoader<MintsVat> }
+ *   consume: { mints }
  * }} powers
  */
 export const fundAMM = async ({
@@ -299,7 +453,7 @@ export const fundAMM = async ({
     centralSupplyBundle,
     chainTimerService,
     feeMintAccess,
-    loadVat,
+    mints,
     priceAuthorityAdmin,
     vaultFactoryCreator,
     zoe,
@@ -308,9 +462,7 @@ export const fundAMM = async ({
   const { ammTotal: ammDepositValue, balances } =
     ammPoolRunDeposits(AMMDemoState);
 
-  const vats = {
-    mints: E(loadVat)('mints'),
-  };
+  const vats = { mints };
 
   const kits = await Collect.allValues(
     Collect.mapValues(
@@ -352,15 +504,11 @@ export const fundAMM = async ({
     chainTimerService,
   ]);
 
-  const ammBootstrapPayment = await printMoney(
-    central.issuer,
-    ammDepositValue,
-    {
-      centralSupplyBundle,
-      feeMintAccess,
-      zoe,
-    },
-  );
+  const ammBootstrapPayment = await mintRunPayment(ammDepositValue, {
+    centralSupplyBundle,
+    feeMintAccess,
+    zoe,
+  });
 
   async function addAllCollateral() {
     const issuerMap = await splitAllCentralPayments(

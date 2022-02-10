@@ -207,7 +207,7 @@ export const addBankAssets = async ({
     loadVat,
     zoe,
   },
-  produce: { bankManager },
+  produce: { bankManager, bldIssuerKit },
 }) => {
   const runIssuer = await E(zoe).getFeeIssuer();
   const [runBrand, payment] = await Promise.all([
@@ -221,6 +221,7 @@ export const addBankAssets = async ({
     AssetKind.NAT,
     Tokens.BLD.displayInfo,
   ); // TODO: should this live in another vat???
+  bldIssuerKit.resolve(bldKit);
 
   const mgr = E(E(loadVat)('bank')).makeBankManager(bridgeManager);
   bankManager.resolve(mgr);

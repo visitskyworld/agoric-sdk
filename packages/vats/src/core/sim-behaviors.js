@@ -27,19 +27,6 @@ export const installSimEgress = async ({
 harden(installSimEgress);
 
 /** @param {BootstrapPowers} powers */
-export const connectFaucet = async ({ consume: { zoe, client } }) => {
-  const userFeePurse = await E(zoe).makeFeePurse();
-  const faucet = Far('faucet', {
-    tapFaucet: () => [],
-    // TODO: obsolete getFeePurse, now that zoe fees are gone?
-    getFeePurse: () => userFeePurse,
-  });
-
-  return E(client).assignBundle([_addr => ({ faucet })]);
-};
-harden(connectFaucet);
-
-/** @param {BootstrapPowers} powers */
 export const grantRunBehaviors = async ({
   runBehaviors,
   consume: { client },
