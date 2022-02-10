@@ -167,10 +167,9 @@ export const mintInitialSupply = async ({
   consume: { centralSupplyBundle: bundleP, feeMintAccess: feeMintAccessP, zoe },
   produce: { initialSupply },
 }) => {
-  const [centralSupplyBundle, feeMintAccess, runIssuer] = await Promise.all([
+  const [centralSupplyBundle, feeMintAccess] = await Promise.all([
     bundleP,
     feeMintAccessP,
-    E(zoe).getFeeIssuer(),
   ]);
 
   const { supplyCoins = [] } = bootMsg || {};
@@ -182,7 +181,7 @@ export const mintInitialSupply = async ({
   const installation = E(zoe).install(centralSupplyBundle);
   const start = E(zoe).startInstance(
     installation,
-    { Central: runIssuer },
+    {},
     { bootstrapPaymentValue },
     { feeMintAccess },
   );
