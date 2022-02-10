@@ -3,7 +3,7 @@ import { E } from '@endo/far';
 import { AssetKind } from '@agoric/ertp';
 import { makePromiseKit } from '@agoric/promise-kit';
 import { makeStore } from '@agoric/store';
-import { Collect } from '@agoric/run-protocol/src/collect';
+import { Collect } from '@agoric/run-protocol/src/collect.js';
 import { makeNameHubKit } from '../nameHub.js';
 
 const { entries, fromEntries, keys } = Object;
