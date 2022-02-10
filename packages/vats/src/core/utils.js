@@ -30,6 +30,7 @@ export const shared = harden({
     VaultFactory: 'vault factory',
     liquidate: 'liquidate',
     getRUN: 'getRUN',
+    pegasus: 'pegasus',
   },
   instance: {
     economicCommittee: 'Economic Committee',
