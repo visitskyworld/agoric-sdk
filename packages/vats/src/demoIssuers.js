@@ -605,13 +605,11 @@ export const fundAMM = async ({
       /** @param { bigint } n */
       const inCollateral = n => n * 10n ** BigInt(DecimalPlaces[issuerName]);
       const tradesGivenCentral = trades.map(
-        ({
-          central: num,
-          collateral: unit,
-        }) => /** @type {[bigint, bigint]} */ ([
-          run2places(num),
-          inCollateral(unit),
-        ]),
+        ({ central: num, collateral: unit }) =>
+          /** @type {[bigint, bigint]} */ ([
+            run2places(num),
+            inCollateral(unit),
+          ]),
       );
       assert(issuer);
       const brand = await E(issuer).getBrand();
