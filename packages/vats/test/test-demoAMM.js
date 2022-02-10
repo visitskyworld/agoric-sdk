@@ -14,42 +14,17 @@ import {
   connectFaucet,
   AMMDemoState,
   ammPoolRunDeposits,
+  decimal,
+  DecimalPlaces,
   fundAMM,
   poolRates,
+  showAmount,
+  showBrand,
   splitAllCentralPayments,
 } from '../src/demoIssuers.js';
 import { buildRootObject as bldMintRoot } from '../src/vat-mints.js';
 import { makePromiseSpace } from '../src/core/utils.js';
 
-/**
- * @param {bigint} frac
- * @param {number} exp
- * @returns
- */
-const pad0 = (frac, exp) =>
-  `${`${'0'.repeat(exp)}${frac}`.slice(-exp)}`.replace(/0+$/, '');
-
-/** @param { bigint } whole */
-const separators = whole => {
-  const sep = '_';
-  // ack: https://stackoverflow.com/a/45950572/7963, https://regex101.com/
-  const revStr = s => s.split('').reverse().join('');
-  const lohi = revStr(`${whole}`);
-  const s = lohi.replace(/(?=\d{4})(\d{3})/g, (m, p1) => `${p1}${sep}`);
-  return revStr(s);
-};
-
-/**
- * @param {bigint} n
- * @param {number} exp
- */
-const decimal = (n, exp) => {
-  const unit = 10n ** BigInt(exp);
-  const [whole, frac] = [n / unit, n % unit];
-  return frac !== 0n
-    ? `${separators(whole)}.${pad0(frac, exp)}`
-    : `${separators(whole)}`;
-};
 
 /** @param { bigint } n */
 const showRUN = n => `${decimal(n, 6)} RUN`;
@@ -84,13 +59,6 @@ test('splitAllCentralPayments: count entries, spot check', async t => {
   t.deepEqual(Object.keys(actual), ['BLD', 'ATOM', 'WETH', 'LINK', 'USDC']);
 });
 
-const showBrand = b => `${b}`.replace(/.object Alleged: (.*) brand./, '$1');
-const Decimals = { RUN: 6, BLD: 6, ATOM: 6, WETH: 18, LINK: 18, USDC: 18 };
-const showAmount = ({ brand, value }) => {
-  const b = `${showBrand(brand)}`;
-  return `${decimal(value, Decimals[b])} ${b}`;
-};
-
 test('poolRates: spot check WETH', t => {
   const central = makeIssuerKit('RUN', 'nat', harden({ decimalPlaces: 6 }));
   const weth = makeIssuerKit('WETH', 'nat', harden({ decimalPlaces: 18 }));
@@ -102,7 +70,7 @@ test('poolRates: spot check WETH', t => {
     central,
   );
 
-  t.is(decimal(initialValue, Decimals.WETH), '1_000_000');
+  t.is(decimal(initialValue, DecimalPlaces.WETH), '1_000_000');
   t.is((AMMDemoState.WETH.config || {}).collateralValue, 1_000_000n);
 
   t.is(showBrand(rates.interestRate.numerator.brand), 'RUN');
@@ -114,9 +82,9 @@ test('poolRates: spot check WETH', t => {
     numerator.brand === denominator.brand
       ? `${decimal(
           (numerator.value *
-            10n ** BigInt(Decimals[showBrand(numerator.brand)])) /
+            10n ** BigInt(DecimalPlaces[showBrand(numerator.brand)])) /
             denominator.value,
-          Decimals[showBrand(numerator.brand)],
+          DecimalPlaces[showBrand(numerator.brand)],
         )}`
       : `${showAmount(numerator)} / ${showAmount(denominator)}`;
   const expected = {

@@ -16,7 +16,7 @@ const CENTRAL_ISSUER_NAME = 'RUN';
 const QUOTE_INTERVAL = 5 * 60;
 
 /** @type {Record<string, number>} */
-const DecimalPlaces = {
+export const DecimalPlaces = {
   BLD: 6,
   [CENTRAL_ISSUER_NAME]: 6,
   ATOM: 6,
@@ -41,6 +41,43 @@ const FakePurseDetail = {
 
 const PCT = 100n;
 const BASIS = 10_000n;
+
+/**
+ * @param {bigint} frac
+ * @param {number} exp
+ * @returns
+ */
+const pad0 = (frac, exp) =>
+  `${`${'0'.repeat(exp)}${frac}`.slice(-exp)}`.replace(/0+$/, '');
+
+/** @param { bigint } whole */
+const separators = whole => {
+  const sep = '_';
+  // ack: https://stackoverflow.com/a/45950572/7963, https://regex101.com/
+  const revStr = s => s.split('').reverse().join('');
+  const lohi = revStr(`${whole}`);
+  const s = lohi.replace(/(?=\d{4})(\d{3})/g, (m, p1) => `${p1}${sep}`);
+  return revStr(s);
+};
+
+/**
+ * @param {bigint} n
+ * @param {number} exp
+ */
+export const decimal = (n, exp) => {
+  const unit = 10n ** BigInt(exp);
+  const [whole, frac] = [n / unit, n % unit];
+  return frac !== 0n
+    ? `${separators(whole)}.${pad0(frac, exp)}`
+    : `${separators(whole)}`;
+};
+
+export const showBrand = b =>
+  `${b}`.replace(/.object Alleged: (.*) brand./, '$1');
+export const showAmount = ({ brand, value }) => {
+  const b = `${showBrand(brand)}`;
+  return `${decimal(value, DecimalPlaces[b])} ${b}`;
+};
 
 /**
  * @typedef {[bigint, bigint]} Rational
