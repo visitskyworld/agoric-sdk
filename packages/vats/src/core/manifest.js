@@ -164,7 +164,17 @@ export const SIM_CHAIN_BOOTSTRAP_MANIFEST = harden({
     consume: { clientCreator: true },
   },
   connectFaucet: {
-    consume: { zoe: true, client: true },
+    consume: {
+      bankManager: true,
+      bridgeManager: true,
+      bldIssuerKit: true,
+      centralSupplyBundle: true,
+      client: true,
+      feeMintAccess: true,
+      loadVat: true,
+      zoe: true,
+    },
+    produce: { mints: true },
     home: { produce: { faucet: true } },
   },
   grantRunBehaviors: {
