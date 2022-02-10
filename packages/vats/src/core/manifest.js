@@ -102,6 +102,7 @@ export const CHAIN_BOOTSTRAP_MANIFEST = harden({
     },
     produce: {
       bankManager: 'bank',
+      bldIssuerKit: true,
     },
     // TODO: re-org loadVat, agoricNames to be
     // subject to permits such as these:
