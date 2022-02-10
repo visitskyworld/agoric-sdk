@@ -67,7 +67,7 @@
  *   assignBundle: (ps: PropertyMakers) => void
  * }} ClientManager
  *
- * @typedef {Array<(addr: string) => ERef<Record<string, unknown>>>} PropertyMakers
+ * @typedef {Array<(addr: string) => Record<string, unknown>>} PropertyMakers
  */
 
 /**

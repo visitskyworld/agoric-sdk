@@ -65,14 +65,12 @@ export const addRemote = async (addr, { vats: { comms, vattp } }) => {
 harden(addRemote);
 
 /**
- * @param {Array<(...args) => ERef<Record<string, unknown>>>} builders
+ * @param {Array<(...args) => Record<string, unknown>>} builders
  * @param  {...unknown} args
- * @returns {Promise<Record<string, unknown>>}
+ * @returns {Record<string, unknown>}
  */
-export const mixProperties = (builders, ...args) =>
-  Collect.allValues(
-    fromEntries(builders.map(fn => entries(fn(...args))).flat()),
-  );
+export const callProperties = (builders, ...args) =>
+  fromEntries(builders.map(fn => entries(fn(...args))).flat());
 
 export const makeNameAdmins = () => {
   const { nameHub: agoricNames, nameAdmin: agoricNamesAdmin } =

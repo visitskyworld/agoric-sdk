@@ -20,7 +20,7 @@ import {
 
 import { makeBridgeManager as makeBridgeManagerKit } from '../bridge.js';
 
-import { collectNameAdmins, mixProperties } from './utils.js';
+import { collectNameAdmins, callProperties } from './utils.js';
 
 const { details: X } = assert;
 
@@ -109,10 +109,7 @@ export const makeClientManager = async ({
 
       const makeUpdatedConfiguration = async (newPropertyMakers = []) => {
         // Specialize the property makers with the client address.
-        const newProperties = await mixProperties(
-          newPropertyMakers,
-          clientAddress,
-        );
+        const newProperties = callProperties(newPropertyMakers, clientAddress);
         clientHome = { ...clientHome, ...newProperties };
         const config = harden({ clientAddress, clientHome });
         /** @type {typeof config} */
