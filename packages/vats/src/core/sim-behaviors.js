@@ -3,6 +3,8 @@ import { E, Far } from '@endo/far';
 import { GOVERNANCE_ACTIONS_MANIFEST } from './manifest.js';
 import { addRemote } from './utils.js';
 
+export { connectFaucet, fundAMM } from '../demoIssuers.js';
+
 /** @param { BootstrapPowers } powers */
 export const installSimEgress = async ({
   vatParameters: { argv },
