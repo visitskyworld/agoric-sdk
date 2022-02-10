@@ -268,7 +268,6 @@ const provideCoin = async (name, mints) => {
 export const connectFaucet = async ({
   consume: {
     bankManager,
-    bridgeManager,
     bldIssuerKit: bldP,
     centralSupplyBundle,
     client,
@@ -278,8 +277,6 @@ export const connectFaucet = async ({
   },
   produce: { mints },
 }) => {
-  const bankBridgeManager = await bridgeManager;
-
   const vats = {
     mints: E(loadVat)('mints'),
   };
@@ -311,90 +308,82 @@ export const connectFaucet = async ({
     },
   };
 
-  /** @type { PropertyMakers } */
-  const addFaucet = [
-    async address => {
-      const bank = await E(bankManager).getBankForAddress(address);
+  const makeFaucet = async address => {
+    const bank = await E(bankManager).getBankForAddress(address);
 
-      /** @type {UserPaymentRecord[][]} */
-      const userPaymentRecords = await Promise.all(
-        entries(FaucetPurseDetail).map(async ([issuerName, record]) => {
-          /** @param {string} name */
-          const provideIssuerKit = async name => {
-            switch (name) {
-              case CENTRAL_ISSUER_NAME:
-                return runIssuerKit;
-              case 'BLD':
-                return bldIssuerKit;
-              default: {
-                const { issuer, brand } = await provideCoin(name, vats.mints);
-                const mint = {
-                  mintPayment: async amount => {
-                    const minted = await E(vats.mints).mintInitialPayment(
-                      name,
-                      amount.value,
-                    );
-                    assert(minted);
-                    return minted;
-                  },
-                };
-                return { issuer, brand, mint };
-              }
+    /** @type {UserPaymentRecord[][]} */
+    const userPaymentRecords = await Promise.all(
+      entries(FaucetPurseDetail).map(async ([issuerName, record]) => {
+        /** @param {string} name */
+        const provideIssuerKit = async name => {
+          switch (name) {
+            case CENTRAL_ISSUER_NAME:
+              return runIssuerKit;
+            case 'BLD':
+              return bldIssuerKit;
+            default: {
+              const { issuer, brand } = await provideCoin(name, vats.mints);
+              const mint = {
+                mintPayment: async amount => {
+                  const minted = await E(vats.mints).mintInitialPayment(
+                    name,
+                    amount.value,
+                  );
+                  assert(minted);
+                  return minted;
+                },
+              };
+              return { issuer, brand, mint };
             }
-          };
-          const { issuer, brand, mint } = await provideIssuerKit(issuerName);
-          const unit = 10n ** BigInt(DecimalPlaces[issuerName]);
-          const amount = AmountMath.make(brand, Nat(record.balance) * unit);
-          const payment = await E(mint).mintPayment(amount);
-
-          /** @type {UserPaymentRecord[]} */
-          let toFaucet = [];
-          // If we don't have an actual bridge to the
-          // underlying chain (from which we'll get the assets),
-          // pay to the bank.
-          if (!bankBridgeManager && issuerName === 'BLD') {
-            // Don't mint or pay if we have a separate bank layer.
-            // We'll obtain the assets from the bank layer.
-            const purse = E(bank).getPurse(brand);
-            await E(purse).deposit(payment);
-          } else {
-            toFaucet = [
-              {
-                issuer,
-                brand,
-                issuerPetName: record.proposedName,
-                payment,
-                pursePetName: record.proposedName,
-              },
-            ];
           }
+        };
+        const { issuer, brand, mint } = await provideIssuerKit(issuerName);
+        const unit = 10n ** BigInt(DecimalPlaces[issuerName]);
+        const amount = AmountMath.make(brand, Nat(record.balance) * unit);
+        const payment = await E(mint).mintPayment(amount);
 
-          return toFaucet;
-        }),
-      );
+        /** @type {UserPaymentRecord[]} */
+        let toFaucet = [];
+        // Use the bank layer for BLD.
+        if (issuerName === 'BLD') {
+          const purse = E(bank).getPurse(brand);
+          await E(purse).deposit(payment);
+        } else {
+          toFaucet = [
+            {
+              issuer,
+              brand,
+              issuerPetName: record.proposedName,
+              payment,
+              pursePetName: record.proposedName,
+            },
+          ];
+        }
 
-      const faucetPaymentInfo = userPaymentRecords.flat();
+        return toFaucet;
+      }),
+    );
 
-      const userFeePurse = await E(zoe).makeFeePurse();
+    const faucetPaymentInfo = userPaymentRecords.flat();
 
-      const faucet = Far('faucet', {
-        /**
-         * reap the spoils of our on-chain provisioning.
-         *
-         * @returns {Promise<Array<UserPaymentRecord>>}
-         */
-        async tapFaucet() {
-          return faucetPaymentInfo;
-        },
-        getFeePurse() {
-          return userFeePurse;
-        },
-      });
+    const userFeePurse = await E(zoe).makeFeePurse();
 
-      return { faucet };
-    },
-  ];
-  return E(client).assignBundle(addFaucet);
+    const faucet = Far('faucet', {
+      /**
+       * reap the spoils of our on-chain provisioning.
+       *
+       * @returns {Promise<Array<UserPaymentRecord>>}
+       */
+      tapFaucet: async () => faucetPaymentInfo,
+      getFeePurse() {
+        return userFeePurse;
+      },
+    });
+
+    return faucet;
+  };
+
+  return E(client).assignBundle([address => ({ faucet: makeFaucet(address) })]);
 };
 harden(connectFaucet);
 

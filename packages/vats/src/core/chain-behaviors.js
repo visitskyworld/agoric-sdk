@@ -18,11 +18,13 @@ import {
   makeNonceMaker,
 } from '@agoric/swingset-vat/src/vats/network/index.js';
 
+import { makePromiseKit } from '@agoric/promise-kit';
 import { makeBridgeManager as makeBridgeManagerKit } from '../bridge.js';
 
 import { collectNameAdmins, callProperties } from './utils.js';
 
 const { details: X } = assert;
+const { keys } = Object;
 
 const NUM_IBC_PORTS = 3;
 
@@ -72,10 +74,31 @@ export const bridgeProvisioner = async ({
 };
 harden(bridgeProvisioner);
 
-/** @param {BootstrapPowers} powers */
-export const makeClientManager = async ({
-  produce: { client, clientCreator: clientCreatorP },
-}) => {
+/**
+ * @param {Record<string, unknown>} pattern
+ * @param {Record<string, unknown>} specimen
+ */
+const missingKeys = (pattern, specimen) =>
+  keys(pattern).filter(k => !keys(specimen).includes(k));
+
+/**
+ * @param {BootstrapPowers} powers
+ * @param {{ template: Record<string, unknown> }} config
+ */
+export const makeClientManager = async (
+  { produce: { client, clientCreator: clientCreatorP } },
+  { template } = {
+    template: {
+      agoricNames: true,
+      bank: true,
+      namesByAddress: true,
+      myAddressNameAdmin: true,
+      board: true,
+      faucet: true,
+      zoe: true,
+    },
+  },
+) => {
   // Create a subscription of chain configurations.
   /** @type {SubscriptionRecord<PropertyMakers>} */
   const { subscription, publication } = makeSubscriptionKit();
@@ -106,15 +129,21 @@ export const makeClientManager = async ({
     createClientFacet: async (_nickname, clientAddress, _powerFlags) => {
       /** @type {Record<string, unknown>} */
       let clientHome = {};
+      const walletReady = makePromiseKit();
 
       const makeUpdatedConfiguration = async (newPropertyMakers = []) => {
         // Specialize the property makers with the client address.
         const newProperties = callProperties(newPropertyMakers, clientAddress);
+        console.info('newProperties:', clientAddress, keys(newProperties));
         clientHome = { ...clientHome, ...newProperties };
-        const config = harden({ clientAddress, clientHome });
-        /** @type {typeof config} */
-        const df = deeplyFulfilled(config);
-        return df;
+
+        const todo = missingKeys(template, clientHome);
+        console.info('@@chainBundle wallet TODO:', todo);
+        if (todo.length === 0) {
+          walletReady.resolve(undefined);
+        }
+
+        return harden({ clientAddress, clientHome });
       };
 
       // Publish new configurations.
@@ -123,7 +152,7 @@ export const makeClientManager = async ({
 
       /** @type {ClientFacet} */
       const clientFacet = Far('chainProvisioner', {
-        getChainBundle: () => clientHome,
+        getChainBundle: () => walletReady.promise.then(_ => clientHome),
         getConfiguration: () => notifier,
       });
 

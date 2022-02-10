@@ -78,7 +78,7 @@
  * @returns {Promise<Record<string, unknown>>}
  *
  * @typedef {Object} ClientFacet
- * @property {() => Record<string, unknown>} getChainBundle Required for ag-solo, but deprecated in favour of getConfiguration
+ * @property {() => ERef<Record<string, unknown>>} getChainBundle Required for ag-solo, but deprecated in favour of getConfiguration
  * @property {() => ConsistentAsyncIterable<Configuration>} getConfiguration
  *
  * @typedef {{ clientAddress: string, clientHome: Record<string, unknown>}} Configuration
