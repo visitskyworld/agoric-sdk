@@ -10,9 +10,9 @@ export function buildRootObject(_vatPowers) {
   const mintsAndBrands = makeStore('issuerName');
 
   const api = Far('api', {
-    getAllIssuerNames: () => mintsAndBrands.keys(),
+    getAllIssuerNames: () => [...mintsAndBrands.keys()],
     getIssuer: issuerName => {
-      const mint = mintsAndBrands.get(issuerName);
+      const { mint } = mintsAndBrands.get(issuerName);
       return mint.getIssuer();
     },
     getIssuers: issuerNames => issuerNames.map(api.getIssuer),
