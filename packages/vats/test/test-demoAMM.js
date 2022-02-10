@@ -2,16 +2,11 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { test } from '@agoric/swingset-vat/tools/prepare-test-env-ava.js';
 import { AmountMath, makeIssuerKit } from '@agoric/ertp';
-import {
-  setUpZoeForTest,
-  setupAmmServices,
-} from '@agoric/run-protocol/test/amm/vpool-xyk-amm/setup.js';
-import centralSupplyBundle from '@agoric/run-protocol/bundles/bundle-centralSupply.js';
+import { setupAmmServices } from '@agoric/run-protocol/test/amm/vpool-xyk-amm/setup.js';
+
 import buildManualTimer from '@agoric/zoe/tools/manualTimer.js';
 
-import { E } from '@endo/far';
 import {
-  connectFaucet,
   AMMDemoState,
   ammPoolRunDeposits,
   decimal,
@@ -22,9 +17,6 @@ import {
   showBrand,
   splitAllCentralPayments,
 } from '../src/demoIssuers.js';
-import { buildRootObject as bldMintRoot } from '../src/vat-mints.js';
-import { makePromiseSpace } from '../src/core/utils.js';
-
 
 /** @param { bigint } n */
 const showRUN = n => `${decimal(n, 6)} RUN`;
@@ -115,69 +107,4 @@ test('fundAMM bootstrap behavior', async t => {
   } = await setupAmmServices(electorateTerms, centralR, timer);
   await fundAMM(space);
   t.is('@@actual', '@@expected');
-});
-
-test('connectFaucet produces payments', async t => {
-  const space = /** @type {any} */ (makePromiseSpace());
-  const { consume, produce } =
-    /** @type { BootstrapPowers & { consume: { loadVat: (n: 'mints') => MintsVat }} } */ (
-      space
-    );
-
-  const { zoe, feeMintAccess } = await setUpZoeForTest();
-  produce.zoe.resolve(zoe);
-  produce.feeMintAccess.resolve(feeMintAccess);
-  produce.centralSupplyBundle.resolve(centralSupplyBundle);
-
-  produce.loadVat.resolve(name => {
-    assert.equal(name, 'mints');
-    return bldMintRoot();
-  });
-
-  t.plan(3); // bank deposit, faucet payments, mints
-
-  const bldKit = makeIssuerKit('BLD');
-  produce.bldIssuerKit.resolve(bldKit);
-  produce.bankManager.resolve(
-    Promise.resolve({
-      getBankForAddress: _a => ({
-        // @ts-ignore never mind other methods
-        getPurse: () => ({
-          deposit: async (pmt, _x) => {
-            const amt = await E(bldKit.issuer).getAmountOf(pmt);
-            t.is(showAmount(amt), '5_000 BLD');
-            return amt;
-          },
-        }),
-      }),
-    }),
-  );
-
-  produce.bridgeManager.resolve(undefined);
-  // TODO: test for payment rather than bank deposit:
-  // produce.bridgeManager.resolve({});
-  produce.client.resolve({
-    assignBundle: async ([makeProps]) => {
-      const props = await makeProps('addr1');
-      // @ts-ignore props are unknown; we test that it's a faucet
-      const paymentRecords = await E(props.faucet).tapFaucet();
-      t.log(paymentRecords);
-      const detail = await Promise.all(
-        paymentRecords.map(({ issuer, payment, pursePetName }) =>
-          E(issuer)
-            .getAmountOf(payment)
-            .then(a => [pursePetName, showAmount(a)]),
-        ),
-      );
-      t.deepEqual(detail, [
-        ['Agoric RUN currency', '53 RUN'],
-        ['Oracle fee', '51 LINK'],
-        ['USD Coin', '1_323 USDC'],
-      ]);
-    },
-  });
-
-  await connectFaucet({ consume, produce });
-  const m = await produce.mints;
-  t.truthy(m);
 });
