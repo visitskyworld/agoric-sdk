@@ -6,7 +6,7 @@ import {
   natSafeMath,
   makeRatio,
 } from '@agoric/zoe/src/contractSupport/index.js';
-import { Nat } from '@endo/captp';
+import { Nat } from '@endo/nat';
 import { E, Far } from '@endo/far';
 
 const { multiply, floorDivide } = natSafeMath;
