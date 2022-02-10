@@ -155,6 +155,35 @@ const run2places = f =>
   10n ** BigInt(DecimalPlaces[CENTRAL_ISSUER_NAME] - 2);
 
 /**
+ * @param {bigint} value
+ * @param {{
+ *   centralSupplyBundle: ERef<SourceBundle>,
+ *   feeMintAccess: ERef<FeeMintAccess>,
+ *   zoe: ERef<ZoeService>,
+ * }} powers
+ * @returns { Promise<Payment> }
+ */
+const mintRunPayment = async (
+  value,
+  { centralSupplyBundle: centralP, feeMintAccess: feeMintAccessP, zoe },
+) => {
+  /** @type {[SourceBundle, FeeMintAccess]} */
+  const [centralSupplyBundle, feeMintAccess] = await Promise.all([
+    centralP,
+    feeMintAccessP,
+  ]);
+
+  const { creatorFacet: ammSupplier } = await E(zoe).startInstance(
+    E(zoe).install(centralSupplyBundle),
+    {},
+    { bootstrapPaymentValue: value },
+    { feeMintAccess },
+  );
+  // TODO: stop the contract vat?
+  return E(ammSupplier).getBootstrapPayment();
+};
+
+/**
  * Calculate how much RUN we need to fund the AMM pools
  *
  * @param {typeof AMMDemoState} issuers
@@ -257,37 +286,6 @@ export const poolRates = (issuerName, record, kits, central) => {
     loanFee: toRatio(config.loanFee, central.brand),
   };
   return { rates, initialValue: inCollateral(config.collateralValue) };
-};
-
-/**
- * @param {Issuer} issuer
- * @param {bigint} value
- * @param {{
- *   centralSupplyBundle: ERef<SourceBundle>,
- *   feeMintAccess: ERef<FeeMintAccess>,
- *   zoe: ERef<ZoeService>,
- * }} powers
- * @returns { Promise<Payment> }
- */
-const printMoney = async (
-  issuer,
-  value,
-  { centralSupplyBundle: centralP, feeMintAccess: feeMintAccessP, zoe },
-) => {
-  /** @type {[SourceBundle, FeeMintAccess]} */
-  const [centralSupplyBundle, feeMintAccess] = await Promise.all([
-    centralP,
-    feeMintAccessP,
-  ]);
-
-  const { creatorFacet: ammSupplier } = await E(zoe).startInstance(
-    E(zoe).install(centralSupplyBundle),
-    { Central: issuer },
-    { bootstrapPaymentValue: value },
-    { feeMintAccess },
-  );
-  // TODO: stop the contract vat?
-  return E(ammSupplier).getBootstrapPayment();
 };
 
 /**
