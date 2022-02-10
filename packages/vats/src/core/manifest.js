@@ -189,6 +189,7 @@ export const SIM_CHAIN_BOOTSTRAP_MANIFEST = harden({
       chainTimerService: true,
       feeMintAccess: true,
       loadVat: true,
+      mints: true,
       priceAuthorityAdmin: true,
       vaultFactoryCreator: true,
       zoe: true,
