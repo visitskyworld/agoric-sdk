@@ -5,6 +5,7 @@ import {
   CHAIN_BOOTSTRAP_MANIFEST,
   SIM_CHAIN_BOOTSTRAP_MANIFEST,
   GOVERNANCE_ACTIONS_MANIFEST,
+  DEMO_ECONOMY,
 } from './manifest.js';
 
 import * as behaviors from './behaviors.js';
@@ -20,6 +21,10 @@ const roleToManifest = harden({
 });
 const roleToBehaviors = harden({
   'sim-chain': { ...behaviors, ...simBehaviors },
+});
+const roleToGovernanceActions = harden({
+  chain: GOVERNANCE_ACTIONS_MANIFEST,
+  'sim-chain': { ...GOVERNANCE_ACTIONS_MANIFEST, ...DEMO_ECONOMY },
 });
 
 /**
@@ -95,7 +100,8 @@ const buildRootObject = (vatPowers, vatParameters) => {
 
       await runBehaviors(bootManifest);
       if (vatParameters.governanceActions) {
-        await runBehaviors(GOVERNANCE_ACTIONS_MANIFEST);
+        const actions = roleToGovernanceActions[ROLE];
+        await runBehaviors(actions);
       }
     },
   });

@@ -182,19 +182,6 @@ export const SIM_CHAIN_BOOTSTRAP_MANIFEST = harden({
     consume: { client: true },
     home: { produce: { runBehaviors: true, governanceActions: true } },
   },
-  fundAMM: {
-    consume: {
-      agoricNames: true,
-      centralSupplyBundle: true,
-      chainTimerService: true,
-      feeMintAccess: true,
-      loadVat: true,
-      mints: true,
-      priceAuthorityAdmin: true,
-      vaultFactoryCreator: true,
-      zoe: true,
-    },
-  },
 });
 
 export const GOVERNANCE_ACTIONS_MANIFEST = harden({
@@ -226,10 +213,10 @@ export const GOVERNANCE_ACTIONS_MANIFEST = harden({
   },
   setupAmm: {
     consume: {
-      chainTimerService: true,
+      chainTimerService: 'timer',
       agoricNames: true,
       nameAdmins: true,
-      zoe: true,
+      zoe: 'zoe',
       economicCommitteeCreatorFacet: 'economicCommittee',
       ammBundle: true,
     },
@@ -255,13 +242,13 @@ export const GOVERNANCE_ACTIONS_MANIFEST = harden({
   },
   startVaultFactory: {
     consume: {
-      feeMintAccess: true,
+      feeMintAccess: 'zoe',
       agoricNames: true,
       vaultBundles: true,
       nameAdmins: true,
-      chainTimerService: true,
-      zoe: true,
-      priceAuthority: true,
+      chainTimerService: 'timer',
+      zoe: 'zoe',
+      priceAuthority: 'priceAuthority',
       economicCommitteeCreatorFacet: 'economicCommittee',
     },
     produce: {
@@ -279,20 +266,37 @@ export const GOVERNANCE_ACTIONS_MANIFEST = harden({
   configureVaultFactoryUI: {
     consume: { agoricNames: true, nameAdmins: true, board: true, zoe: true },
   },
-  startRewardDistributor: {
+  // TODO: don't try to startRewardDistributor on sim-chain
+  // startRewardDistributor: {
+  //   consume: {
+  //     agoricNames: true,
+  //     chainTimerService: true,
+  //     bankManager: true,
+  //     loadVat: true,
+  //     vaultFactoryCreator: true,
+  //     ammCreatorFacet: true,
+  //     zoe: true,
+  //   },
+  //   produce: {
+  //     distributor: 'distributeFees',
+  //   },
+  //   issuer: { consume: { RUN: 'zoe' } },
+  //   brand: { consume: { RUN: 'zoe' } },
+  // },
+});
+
+export const DEMO_ECONOMY = harden({
+  fundAMM: {
     consume: {
       agoricNames: true,
-      chainTimerService: true,
-      bankManager: true,
+      centralSupplyBundle: true,
+      chainTimerService: 'timer',
+      feeMintAccess: true,
       loadVat: true,
-      vaultFactoryCreator: true,
-      ammCreatorFacet: true,
+      mints: 'mints',
+      priceAuthorityAdmin: 'priceAuthority',
+      vaultFactoryCreator: 'vaultFactory',
       zoe: true,
     },
-    produce: {
-      distributor: 'distributeFees',
-    },
-    issuer: { consume: { RUN: 'zoe' } },
-    brand: { consume: { RUN: 'zoe' } },
   },
 });
