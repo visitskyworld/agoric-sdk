@@ -384,11 +384,8 @@ export const configureVaultFactoryUI = async ({
       vaultFactoryUiDefaults.CONTRACT_NAME,
       vaultFactoryUiDefaults,
     ],
-    [
-      instanceAdmin,
-      vaultFactoryUiDefaults.CONTRACT_NAME,
-      instances.vaultFactory,
-    ],
+    // compatibility
+    [uiConfigAdmin, 'Treasury', vaultFactoryUiDefaults],
     [instanceAdmin, vaultFactoryUiDefaults.AMM_NAME, instances.amm],
   ];
   await Promise.all(
