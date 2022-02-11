@@ -179,14 +179,16 @@ export const setupAmm = async ({
  */
 export const startPriceAuthority = async ({
   consume: { loadVat },
-  produce: { priceAuthority: priceAuthorityProduce, priceAuthorityAdmin },
+  produce,
 }) => {
+  const vats = { priceAuthority: E(loadVat)('priceAuthority') };
   const { priceAuthority, adminFacet } = await E(
-    E(loadVat)('priceAuthority'),
+    vats.priceAuthority,
   ).makePriceAuthority();
 
-  priceAuthorityProduce.resolve(priceAuthority);
-  priceAuthorityAdmin.resolve(adminFacet);
+  produce.priceAuthorityVat.resolve(vats.priceAuthority);
+  produce.priceAuthority.resolve(priceAuthority);
+  produce.priceAuthorityAdmin.resolve(adminFacet);
 };
 harden(startPriceAuthority);
 
