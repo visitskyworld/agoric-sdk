@@ -29,7 +29,7 @@ test('urun -> RUN formatting test utility', t => {
 
 test('ammPoolRunDeposits: check total, WETH', t => {
   const actual = ammPoolRunDeposits(AMMDemoState);
-  t.log(actual);
+  // t.log(actual);
   t.deepEqual(showRUN(actual.ammTotal), '3_380_790_000 RUN');
   t.deepEqual(showRUN(actual.balances.WETH), '3_286_010_000 RUN');
 });
@@ -45,7 +45,7 @@ test('splitAllCentralPayments: count entries, spot check', async t => {
     deposits.balances,
     central,
   );
-  t.log(actual);
+  // t.log(actual);
   t.is(actual.ATOM.amount.brand, central.brand);
   t.deepEqual(showRUN(actual.ATOM.amount.value), '33_280_000 RUN');
   t.deepEqual(Object.keys(actual), ['BLD', 'ATOM', 'WETH', 'LINK', 'USDC']);

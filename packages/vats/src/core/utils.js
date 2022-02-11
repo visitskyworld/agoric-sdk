@@ -124,9 +124,12 @@ harden(collectNameAdmins);
  * Make { produce, consume } where for each name, `consume[name]` is a promise
  * and `produce[name].resolve` resolves it.
  *
+ * Note: repeated resolves() are noops.
+ *
+ * @param {typeof console.log} [log]
  * @returns {PromiseSpace}
  */
-export const makePromiseSpace = () => {
+export const makePromiseSpace = (log = (..._args) => {}) => {
   /** @type {Map<string, PromiseRecord<unknown>>} */
   const state = new Map();
   const remaining = new Set();
@@ -134,7 +137,7 @@ export const makePromiseSpace = () => {
   const findOrCreateKit = name => {
     let kit = state.get(name);
     if (!kit) {
-      console.info(`${name}: new Promise`);
+      log(`${name}: new Promise`);
       kit = makePromiseKit();
       state.set(name, kit);
       remaining.add(name);
@@ -159,19 +162,10 @@ export const makePromiseSpace = () => {
       get: (_target, name) => {
         assert.typeof(name, 'string');
         const { resolve, promise } = findOrCreateKit(name);
-        // promise.then(
-        // () => console.info(name, ': resolve'),
-        // e => console.info(name, ': reject', e),
-        // );
         promise.finally(() => {
           remaining.delete(name);
-          console.info(
-            name,
-            'settled; remaining:',
-            [...remaining.keys()].sort(),
-          );
+          log(name, 'settled; remaining:', [...remaining.keys()].sort());
         });
-        // Note: repeated resolves() are noops.
         return harden({ resolve });
       },
     },

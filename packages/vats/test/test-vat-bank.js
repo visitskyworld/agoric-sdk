@@ -197,7 +197,7 @@ test('communication', async t => {
 
 test('mintInitialSupply, addBankAssets bootstrap actions', async t => {
   // Supply bootstrap prerequisites.
-  const space = /** @type { any } */ (makePromiseSpace());
+  const space = /** @type { any } */ (makePromiseSpace(t.log));
   const { produce, consume } =
     /** @type { BootstrapPowers & { consume: { loadVat: VatLoader<any> }}} */ (
       space

@@ -1,5 +1,6 @@
 // @ts-check
 import { E, Far } from '@endo/far';
+
 import { extract, makePromiseSpace } from './utils.js';
 import {
   CHAIN_BOOTSTRAP_MANIFEST,
@@ -40,7 +41,7 @@ const roleToGovernanceActions = harden({
  * }} vatParameters
  */
 const buildRootObject = (vatPowers, vatParameters) => {
-  const { produce, consume } = makePromiseSpace();
+  const { produce, consume } = makePromiseSpace(console.info);
 
   const {
     argv: { ROLE },
