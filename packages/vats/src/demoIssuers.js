@@ -24,6 +24,8 @@ export const DecimalPlaces = {
   WETH: 18,
   LINK: 18,
   USDC: 18,
+  moola: 2,
+  simolean: 0,
 };
 
 /** @type {Record<string, { proposedName: string, balance: bigint}>} */
@@ -345,8 +347,8 @@ export const connectFaucet = async ({
 
         /** @type {UserPaymentRecord[]} */
         let toFaucet = [];
-        // Use the bank layer for BLD.
-        if (issuerName === 'BLD') {
+        // Use the bank layer for BLD, RUN.
+        if (['BLD', 'RUN'].includes(issuerName)) {
           const purse = E(bank).getPurse(brand);
           await E(purse).deposit(payment);
         } else {
@@ -354,7 +356,7 @@ export const connectFaucet = async ({
             {
               issuer,
               brand,
-              issuerPetname: record.proposedName,
+              issuerPetname: issuerName,
               payment,
               pursePetname: record.proposedName,
             },
