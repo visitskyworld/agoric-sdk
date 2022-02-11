@@ -37,6 +37,7 @@ export const shared = harden({
     amm: 'Automated Market Maker',
     ammGovernor: 'AMM Governor',
     VaultFactory: 'vault factory',
+    Treasury: 'Treasury', // for compatibility
     VaultFactoryGovernor: 'vault factory governor',
     liquidate: 'liquidate',
     getRUN: 'getRUN',

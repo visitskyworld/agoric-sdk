@@ -302,6 +302,7 @@ export const startVaultFactory = async (
   // Advertise the installation in agoricNames.
   await Promise.all([
     E(instanceAdmin).update('VaultFactory', vaultFactoryInstance),
+    E(instanceAdmin).update('Treasury', vaultFactoryInstance), // backward compatibility
     E(instanceAdmin).update('VaultFactoryGovernor', governorInstance),
     ...entries(installations).map(([name, install]) =>
       E(installAdmin).update(name, install),
