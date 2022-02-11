@@ -90,21 +90,3 @@ test('poolRates: spot check WETH', t => {
     t.is(showRatio(rates[prop]), val),
   );
 });
-
-test('fundAMM bootstrap behavior', async t => {
-  const centralR = makeIssuerKit('central');
-  const electorateTerms = { committeeName: 'The Cabal', committeeSize: 1 };
-  const timer = buildManualTimer(console.log);
-
-  const {
-    zoe,
-    amm,
-    committeeCreator,
-    governor,
-    installs,
-    invitationAmount,
-    space,
-  } = await setupAmmServices(electorateTerms, centralR, timer);
-  await fundAMM(space);
-  t.is('@@actual', '@@expected');
-});
