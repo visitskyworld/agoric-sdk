@@ -134,11 +134,9 @@ export const makeClientManager = async (
       const makeUpdatedConfiguration = async (newPropertyMakers = []) => {
         // Specialize the property makers with the client address.
         const newProperties = callProperties(newPropertyMakers, clientAddress);
-        console.info('newProperties:', clientAddress, keys(newProperties));
         clientHome = { ...clientHome, ...newProperties };
 
         const todo = missingKeys(template, clientHome);
-        console.info('@@chainBundle wallet TODO:', todo);
         if (todo.length === 0) {
           walletReady.resolve(undefined);
         }
