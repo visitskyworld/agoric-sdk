@@ -47,10 +47,11 @@ test('connectFaucet produces payments', async t => {
     return bldMintRoot();
   });
 
-  t.plan(4); // bank deposit, faucet payments, mints
+  t.plan(6); // be sure bank.deposit() gets called
 
   const bldKit = makeIssuerKit('BLD');
   produce.bldIssuerKit.resolve(bldKit);
+  const runIssuer = E(zoe).getFeeIssuer();
   produce.bankManager.resolve(
     Promise.resolve(
       // @ts-ignore never mind other methods
@@ -58,10 +59,12 @@ test('connectFaucet produces payments', async t => {
         getBankForAddress: _a =>
           Far('mockBank', {
             // @ts-ignore never mind other methods
-            getPurse: () => ({
+            getPurse: brand => ({
               deposit: async (pmt, _x) => {
-                const amt = await E(bldKit.issuer).getAmountOf(pmt);
-                t.is(showAmount(amt), '5_000 BLD');
+                const isBLD = brand === bldKit.brand;
+                const issuer = isBLD ? bldKit.issuer : runIssuer;
+                const amt = await E(issuer).getAmountOf(pmt);
+                t.is(showAmount(amt), isBLD ? '5_000 BLD' : '53 RUN');
                 return amt;
               },
             }),
@@ -100,14 +103,13 @@ test('connectFaucet produces payments', async t => {
   const pmts = await E(userBundle.faucet).tapFaucet();
 
   const detail = await Promise.all(
-    pmts.map(({ issuer, payment, pursePetName }) =>
+    pmts.map(({ issuer, payment, pursePetname }) =>
       E(issuer)
         .getAmountOf(payment)
-        .then(a => [pursePetName, showAmount(a)]),
+        .then(a => [pursePetname, showAmount(a)]),
     ),
   );
   t.deepEqual(detail, [
-    ['Agoric RUN currency', '53 RUN'],
     ['Oracle fee', '51 LINK'],
     ['USD Coin', '1_323 USDC'],
   ]);
