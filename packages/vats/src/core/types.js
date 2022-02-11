@@ -105,6 +105,7 @@
  *     initialSupply: ERef<Payment>,
  *     nameAdmins: Promise<Store<NameHub, NameAdmin>>,
  *     pegasusBundle: Promise<SourceBundle>,
+ *     priceAuthorityVat: ERef<PriceAuthorityVat>,
  *     priceAuthority: ERef<PriceAuthority>,
  *     priceAuthorityAdmin: ERef<PriceAuthorityRegistryAdmin>,
  *     vaultFactoryCreator: ERef<VaultFactory>,
@@ -126,6 +127,7 @@
  *     centralSupplyBundle: Producer<SourceBundle>,
  *     feeMintAccess: Producer<FeeMintAccess>,
  *     nameAdmins: Producer<Store<NameHub, NameAdmin>>,
+ *     priceAuthorityVat: Producer<PriceAuthorityVat>,
  *     priceAuthority: Producer<PriceAuthority>,
  *     priceAuthorityAdmin: Producer<PriceAuthorityRegistryAdmin>,
  *     pegasusBundle: Producer<SourceBundle>,
@@ -191,6 +193,7 @@
  * @typedef {ERef<ReturnType<import('../vat-bank.js').buildRootObject>>} BankVat
  * @typedef {ERef<ReturnType<import('../vat-provisioning.js').buildRootObject>>} ProvisioningVat
  * @typedef {ERef<ReturnType<import('../vat-mints.js').buildRootObject>>} MintsVat
+ * @typedef {ERef<ReturnType<import('../vat-priceAuthority.js').buildRootObject>>} PriceAuthorityVat
  * @typedef { import('@agoric/zoe/tools/priceAuthorityRegistry').PriceAuthorityRegistryAdmin } PriceAuthorityRegistryAdmin
  */
 

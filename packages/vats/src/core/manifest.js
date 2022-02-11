@@ -236,6 +236,7 @@ export const GOVERNANCE_ACTIONS_MANIFEST = harden({
   startPriceAuthority: {
     consume: { loadVat: true },
     produce: {
+      priceAuthorityVat: 'priceAuthority',
       priceAuthority: 'priceAuthority',
       priceAuthorityAdmin: 'priceAuthority',
     },
@@ -294,6 +295,7 @@ export const DEMO_ECONOMY = harden({
       feeMintAccess: true,
       loadVat: true,
       mints: 'mints',
+      priceAuthorityVat: 'priceAuthority',
       priceAuthorityAdmin: 'priceAuthority',
       vaultFactoryCreator: 'vaultFactory',
       zoe: true,
