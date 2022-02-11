@@ -259,10 +259,10 @@ const provideCoin = async (name, mints) => {
  * TODO: sync this type with end-user docs?
  * @typedef {{
  *   issuer: Issuer,
- *   issuerPetName: string,
+ *   issuerPetname: string,
  *   payment: Payment,
  *   brand: Brand,
- *   pursePetName: string,
+ *   pursePetname: string,
  * }} UserPaymentRecord
  */
 export const connectFaucet = async ({
@@ -353,9 +353,9 @@ export const connectFaucet = async ({
             {
               issuer,
               brand,
-              issuerPetName: record.proposedName,
+              issuerPetname: record.proposedName,
               payment,
-              pursePetName: record.proposedName,
+              pursePetname: record.proposedName,
             },
           ];
         }
