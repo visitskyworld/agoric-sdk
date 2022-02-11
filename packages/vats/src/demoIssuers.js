@@ -9,6 +9,7 @@ import {
 import { Nat } from '@endo/nat';
 import { E, Far } from '@endo/far';
 
+const { details: X, quote: q } = assert;
 const { multiply, floorDivide } = natSafeMath;
 const { entries, fromEntries, keys, values } = Object;
 
@@ -562,6 +563,9 @@ export const fundAMM = async ({
 
     return Promise.all(
       entries(AMMDemoState).map(async ([issuerName, record]) => {
+        if (!record.config) {
+          return undefined;
+        }
         const { rates, initialValue } = poolRates(
           issuerName,
           record,
@@ -569,11 +573,13 @@ export const fundAMM = async ({
           central,
         );
 
+        // @@ doesn't work for BLD?
         const collateralPayments = E(vats.mints).mintInitialPayments(
           [issuerName],
           [initialValue],
         );
         const secondaryPayment = E.get(collateralPayments)[0];
+        assert(secondaryPayment, X`no payment for ${q(issuerName)}`);
 
         const kit = kits[issuerName];
         assert(kit.issuer, `No issuer for ${issuerName}`);
@@ -582,6 +588,8 @@ export const fundAMM = async ({
           issuerName,
         );
         const [secondaryAmount, liquidityBrand] = await Promise.all([
+          // Error: (an undefined) was not a live payment for brand
+          //  at (.../vats/src/demoIssuers.js:591)
           E(kit.issuer).getAmountOf(secondaryPayment),
           E(liquidityIssuer).getBrand(),
         ]);
