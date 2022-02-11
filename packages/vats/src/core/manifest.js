@@ -292,6 +292,7 @@ export const DEMO_ECONOMY = harden({
       agoricNames: true,
       centralSupplyBundle: true,
       chainTimerService: 'timer',
+      bldIssuerKit: true,
       feeMintAccess: true,
       loadVat: true,
       mints: 'mints',

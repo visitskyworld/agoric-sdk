@@ -496,17 +496,19 @@ export const poolRates = (issuerName, record, kits, central) => {
 };
 
 /**
- * @param { EconomyBootstrapPowers & {
+ * @param { BootstrapPowers & {
  *   consume: { mints }
  * }} powers
  */
 export const fundAMM = async ({
   consume: {
     agoricNames,
+    bldIssuerKit,
     centralSupplyBundle,
     chainTimerService,
     feeMintAccess,
     mints,
+    priceAuthorityVat,
     priceAuthorityAdmin,
     vaultFactoryCreator,
     zoe,
@@ -515,7 +517,7 @@ export const fundAMM = async ({
   const { ammTotal: ammDepositValue, balances } =
     ammPoolRunDeposits(AMMDemoState);
 
-  const vats = { mints };
+  const vats = { mints, priceAuthority: priceAuthorityVat };
 
   const kits = await Collect.allValues(
     Collect.mapValues(
@@ -541,6 +543,7 @@ export const fundAMM = async ({
     ),
   );
   const central = kits[CENTRAL_ISSUER_NAME];
+  const bldKit = await bldIssuerKit;
 
   /** @type {ERef<Instance>} */
   const ammInstance = E(agoricNames).lookup('instance', 'amm');
@@ -576,14 +579,14 @@ export const fundAMM = async ({
         );
 
         // @@ doesn't work for BLD?
-        const collateralPayments = E(vats.mints).mintInitialPayments(
-          [issuerName],
-          [initialValue],
-        );
-        const secondaryPayment = E.get(collateralPayments)[0];
+        const secondaryPayment = await (issuerName === 'BLD'
+          ? E(bldKit.mint).mintPayment(
+              AmountMath.make(bldKit.brand, initialValue),
+            )
+          : E(vats.mints).mintInitialPayment(issuerName, initialValue));
         assert(secondaryPayment, X`no payment for ${q(issuerName)}`);
 
-        const kit = kits[issuerName];
+        const kit = issuerName === 'BLD' ? bldKit : kits[issuerName];
         assert(kit.issuer, `No issuer for ${issuerName}`);
         const liquidityIssuer = E(ammPublicFacet).addPool(
           kit.issuer,
